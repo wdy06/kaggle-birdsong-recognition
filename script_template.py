@@ -1,9 +1,8 @@
-import gzip
 import base64
+import gzip
 import os
 from pathlib import Path
 from typing import Dict
-
 
 # this is base64 encoded source code
 file_data: Dict = {file_data}
@@ -17,8 +16,9 @@ for path, encoded in file_data.items():
 
 
 def run(command):
-    os.system('export PYTHONPATH=${PYTHONPATH}:/kaggle/working && ' + command)
+    os.system("export PYTHONPATH=${PYTHONPATH}:/kaggle/working && " + command)
 
 
-run('python setup.py develop --install-dir /kaggle/working')
-run('python easy_gold/main.py')
+model_dir = ""
+run("python setup.py develop --install-dir /kaggle/working")
+run(f"python easy_gold/predict.py -m {model_dir}")

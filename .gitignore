@@ -1,1 +1,5 @@
 /build/script.py
+data/
+results/
+*.csv
+easy_gold/__pycache__/
