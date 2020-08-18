@@ -16,16 +16,22 @@ import utils
 
 parser = argparse.ArgumentParser(description="aptos2019 blindness detection on kaggle")
 parser.add_argument("--debug", help="run debug mode", action="store_true")
+parser.add_argument("--multi", help="use multi gpu", action="store_true")
 # parser.add_argument('--config', '-c', type=str, help='path to config')
 args = parser.parse_args()
+
+print(f"found {torch.cuda.device_count()} gpus !!")
 
 exp_name = utils.make_experiment_name(args.debug)
 RESULT_DIR = utils.RESULTS_BASE_DIR / exp_name
 os.mkdir(RESULT_DIR)
 print(f"created: {RESULT_DIR}")
 
+device = torch.device("cuda:0")
+
 SAMPLE_RATE = 32000
 NUM_WORKERS = 64
+BATCH_SIZE = 256
 if args.debug:
     EPOCH = 1
     print("running debug mode...")
@@ -52,17 +58,21 @@ valid_ds = datasets.SpectrogramDataset(
 print(len(train_ds), len(valid_ds))
 
 train_dl = torch.utils.data.DataLoader(
-    train_ds, batch_size=120, shuffle=True, num_workers=NUM_WORKERS
+    train_ds, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS
 )
 valid_dl = torch.utils.data.DataLoader(
-    valid_ds, batch_size=2 * 120, shuffle=False, num_workers=NUM_WORKERS
+    valid_ds, batch_size=BATCH_SIZE, shuffle=False, num_workers=NUM_WORKERS
 )
 
 
 model_name = "base_resnet50"
 model = model_utils.build_model(model_name, n_class=len(classes), pretrained=False)
+if args.multi:
+    print("Using pararell gpu")
+    model = nn.DataParallel(model)
 
-model.cuda()
+# model.cuda()
+model.to(device)
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), 1e-3)
