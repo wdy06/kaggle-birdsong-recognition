@@ -31,6 +31,7 @@ class Head(nn.Module):
         x = x.view(x.shape[0], -1)
         for layer in self.layers:
             x = layer(x)
+        x = torch.sigmoid(x)
         return x
 
 

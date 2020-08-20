@@ -75,7 +75,8 @@ if args.multi:
 
 model.to(device)
 
-criterion = nn.CrossEntropyLoss()
+# criterion = nn.CrossEntropyLoss()
+criterion = nn.BCELoss()
 optimizer = optim.Adam(model.parameters(), 1e-3)
 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 10)
 
@@ -83,41 +84,48 @@ print("start training...")
 for epoch in range(EPOCH):
     t0 = time.time()
     running_loss = 0.0
+    # training phase
     for i, (data) in enumerate(train_dl, 0):
         model.train()
         inputs, labels = data[0].cuda(), data[1].cuda()
         optimizer.zero_grad()
 
-        outputs = model(inputs)
-        loss = criterion(outputs, labels.argmax(1))
+        outputs = model(inputs).double()
+        loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
         scheduler.step()
 
         running_loss += loss.item()
 
-        if i % len(train_dl) == len(train_dl) - 1:
-            model.eval()
-            preds = []
-            targs = []
+    # validation phase
+    val_loss = 0.0
+    # if i % len(train_dl) == len(train_dl) - 1:
+    model.eval()
+    preds = []
+    targs = []
 
-            with torch.no_grad():
-                for data, labels in valid_dl:
-                    inputs = data.to(device)
-                    outputs = model(inputs)
-                    preds.append(outputs.cpu().detach().numpy())
-                    targs.append(labels.cpu().detach().numpy())
+    with torch.no_grad():
+        for data, labels in valid_dl:
+            inputs, labels = data.cuda(), labels.cuda()
+            inputs = data.to(device)
+            outputs = model(inputs).double()
+            val_loss += criterion(outputs, labels)
+            preds.append(outputs.cpu().detach().numpy())
+            targs.append(labels.cpu().detach().numpy())
 
-                preds = np.concatenate(preds)
-                targs = np.concatenate(targs)
+        preds = np.concatenate(preds)
+        targs = np.concatenate(targs)
+        val_loss /= len(valid_dl)
+        # val_loss = criterion(preds, targs)
 
-            threshold = 0.5
-            preds = model_utils.sigmoid_np(preds)
-            score = f1_score(preds > threshold, targs, average="micro")
-            print(
-                f"[{epoch + 1}, {time.time() - t0:.1f}] loss: {running_loss / (len(train_dl)-1):.3f}, f1 score: {score:.3f}"
-            )
-            running_loss = 0.0
+    threshold = 0.5
+    # preds = model_utils.sigmoid_np(preds)
+    score = f1_score(preds > threshold, targs, average="micro")
+    print(
+        f"[{epoch + 1}, {time.time() - t0:.1f}] loss: {running_loss / (len(train_dl)-1):.3f}, val loss {val_loss:.3f},f1 score: {score:.3f}"
+    )
+    running_loss = 0.0
 
 model_path = RESULT_DIR / "model.pth"
 model_utils.save_pytorch_model(model, model_path)
