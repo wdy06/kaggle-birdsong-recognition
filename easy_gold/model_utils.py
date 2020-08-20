@@ -5,6 +5,7 @@ import pandas as pd
 import torch
 import torchvision
 from torch import nn
+from tqdm import tqdm
 
 
 class Head(nn.Module):
@@ -61,3 +62,30 @@ def build_model(model_name, n_class, pretrained=False):
         raise ValueError(f"model name {model_name} is not implemented.")
 
     return model
+
+
+def predict(model, dataloader, n_class, device, tta=1):
+    def _predict():
+        model.eval()
+        model.to(device)
+        preds = np.zeros([0, n_class])
+        for data, _ in dataloader:
+            data = data.to(device)
+            with torch.no_grad():
+                y_pred = model(data).detach()
+            # y_pred = F.softmax(y_pred, dim=1).cpu().numpy()
+            y_pred = y_pred.cpu().numpy()
+            preds = np.concatenate([preds, y_pred])
+        return preds
+
+    if tta > 1:
+        print("use tta ...")
+    preds = 0
+    for i in tqdm(range(tta)):
+        preds += _predict()
+    preds /= tta
+    return preds
+
+
+def sigmoid_np(x):
+    return 1.0 / (1.0 + np.exp(-x))

@@ -9,6 +9,7 @@ import torch.optim as optim
 import torchvision
 from sklearn.metrics import accuracy_score, f1_score
 from torch import nn
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 import datasets
 import model_utils
@@ -70,8 +71,8 @@ model = model_utils.build_model(model_name, n_class=len(classes), pretrained=Fal
 if args.multi:
     print("Using pararell gpu")
     model = nn.DataParallel(model)
+    # model = DDP(model)
 
-# model.cuda()
 model.to(device)
 
 criterion = nn.CrossEntropyLoss()
@@ -82,7 +83,7 @@ print("start training...")
 for epoch in range(EPOCH):
     t0 = time.time()
     running_loss = 0.0
-    for i, data in enumerate(train_dl, 0):
+    for i, (data) in enumerate(train_dl, 0):
         model.train()
         inputs, labels = data[0].cuda(), data[1].cuda()
         optimizer.zero_grad()
@@ -101,20 +102,20 @@ for epoch in range(EPOCH):
             targs = []
 
             with torch.no_grad():
-                for data in valid_dl:
-                    inputs, labels = data[0].cuda(), data[1].cuda()
+                for data, labels in valid_dl:
+                    inputs = data.to(device)
                     outputs = model(inputs)
-                    preds.append(outputs.cpu().detach())
-                    targs.append(labels.cpu().detach())
+                    preds.append(outputs.cpu().detach().numpy())
+                    targs.append(labels.cpu().detach().numpy())
 
-                preds = torch.cat(preds)
-                targs = torch.cat(targs)
+                preds = np.concatenate(preds)
+                targs = np.concatenate(targs)
 
-            accuracy = (
-                (targs.argmax(1) == preds.softmax(-1).argmax(1)).float().mean().item()
-            )
+            threshold = 0.5
+            preds = model_utils.sigmoid_np(preds)
+            score = f1_score(preds > threshold, targs, average="micro")
             print(
-                f"[{epoch + 1}, {time.time() - t0:.1f}] loss: {running_loss / (len(train_dl)-1):.3f}, accuracy: {accuracy:.3f}"
+                f"[{epoch + 1}, {time.time() - t0:.1f}] loss: {running_loss / (len(train_dl)-1):.3f}, f1 score: {score:.3f}"
             )
             running_loss = 0.0
 
