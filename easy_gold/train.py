@@ -8,7 +8,7 @@ import torch
 import torch.optim as optim
 import torchvision
 from sklearn.metrics import accuracy_score, f1_score
-from sklearn.model_selection import GroupKFold
+from sklearn.model_selection import GroupKFold, StratifiedKFold
 from torch import nn
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -54,8 +54,9 @@ else:
 # val_set = pd.read_pickle(utils.DATA_DIR / "val_set.pkl")
 
 # utils.dump_pickle(classes, RESULT_DIR / "classes.pkl")
-group_kfold = GroupKFold(n_splits=5)
-for trn_idx, val_idx in group_kfold.split(df, groups=df.ebird_code):
+# group_kfold = GroupKFold(n_splits=5)
+kfold = StratifiedKFold(n_splits=5)
+for trn_idx, val_idx in kfold.split(df, y=df.ebird_code):
     print(len(trn_idx))
     print(len(val_idx))
 
@@ -161,7 +162,7 @@ for epoch in range(EPOCH):
     # preds = model_utils.sigmoid_np(preds)
     score = f1_score(preds > threshold, targs, average="micro")
     print(
-        f"[{epoch + 1}, {time.time() - t0:.1f}] loss: {running_loss / (len(train_dl)-1):.3f}, val loss {val_loss:.3f},f1 score: {score:.3f}"
+        f"[{epoch + 1}, {time.time() - t0:.1f}] loss: {running_loss / (len(train_dl)-1):.4f}, val loss {val_loss:.4f},f1 score: {score:.4f}"
     )
     running_loss = 0.0
 
