@@ -6,6 +6,7 @@ import warnings
 from datetime import datetime
 from pathlib import Path
 
+import cv2
 import numpy as np
 import pandas as pd
 import torch
@@ -357,28 +358,33 @@ def prediction_for_clip(
     test_df: pd.DataFrame,
     clip: np.ndarray,
     ds_class,
-    model,
-    classes,
     sample_rate,
+    model,
+    composer=None,
     threshold=0.5,
 ):
 
-    dataset = ds_class(
-        df=test_df, clip=clip, sample_rate=sample_rate, spec_min=-100, spec_max=80
-    )
-    loader = DataLoader(dataset, batch_size=1, shuffle=False)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model.to(device)
 
     model.eval()
     prediction_dict = {}
-    for image, row_id, site in tqdm(loader):
-        #         print(row_id, site)
-        #         print(image.shape)
-        site = site[0]
-        row_id = row_id[0]
+    for idx in tqdm(range(len(test_df))):
+        record = test_df.loc[idx, :]
+        print(record)
+        row_id = record.row_id
+        site = record.site
         if site in {"site_1", "site_2"}:
+            end_seconds = int(record.seconds)
+            start_seconds = int(end_seconds - 5)
+
+            start_index = sample_rate * start_seconds
+            end_index = sample_rate * end_seconds
+            y = clip[start_index:end_index].astype(np.float32)
+            image = composer(y)
+            image = image[np.newaxis, :, :, :]
+            image = torch.Tensor(image)
             image = image.to(device)
 
             with torch.no_grad():
@@ -391,6 +397,23 @@ def prediction_for_clip(
 
         else:
             # to avoid prediction on large batch
+            y = clip.astype(np.float32)
+            len_y = len(y)
+            start = 0
+            end = sample_rate * 5
+            images = []
+            while len_y > start:
+                y_batch = y[start:end].astype(np.float32)
+                if len(y_batch) != (sample_rate * 5):
+                    break
+                start = end
+                end = end + sample_rate * 5
+
+                image = composer(y_batch)
+                images.append(image)
+            image = np.asarray(images)
+            image = torch.Tensor(image)
+            image = image.to(device)
             image = image.squeeze(0)
             batch_size = 16
             whole_size = image.size(0)
@@ -424,7 +447,7 @@ def prediction_for_clip(
             prediction_dict[row_id] = "nocall"
         else:
             #             labels_str_list = list(map(lambda x: INV_BIRD_CODE[x], labels))
-            labels_str_list = list(map(lambda x: classes[x], labels))
+            labels_str_list = list(map(lambda x: INV_BIRD_CODE[x], labels))
             label_string = " ".join(labels_str_list)
             prediction_dict[row_id] = label_string
     return prediction_dict
@@ -435,7 +458,7 @@ def prediction(
     test_audio: Path,
     ds_class,
     model,
-    classes,
+    composer=None,
     sample_rate=32000,
     threshold=0.5,
 ):
@@ -448,7 +471,7 @@ def prediction(
             test_audio / (audio_id + ".mp3"),
             sr=sample_rate,
             mono=True,
-            res_type="kaiser_fast",
+            # res_type="kaiser_fast",
         )
 
         test_df_for_audio_id = test_df.query(f"audio_id == '{audio_id}'").reset_index(
@@ -458,9 +481,9 @@ def prediction(
             test_df_for_audio_id,
             clip=clip,
             ds_class=ds_class,
-            model=model,
-            classes=classes,
             sample_rate=sample_rate,
+            model=model,
+            composer=composer,
             threshold=threshold,
         )
         row_id = list(prediction_dict.keys())
@@ -470,3 +493,57 @@ def prediction(
 
     prediction_df = pd.concat(prediction_dfs, axis=0, sort=False).reset_index(drop=True)
     return prediction_df
+
+
+def mono_to_color(
+    X: np.ndarray, mean=None, std=None, norm_max=None, norm_min=None, eps=1e-6
+):
+    # Stack X as [X,X,X]
+    X = np.stack([X, X, X], axis=-1)
+
+    # Standardize
+    mean = mean or X.mean()
+    X = X - mean
+    std = std or X.std()
+    Xstd = X / (std + eps)
+    _min, _max = Xstd.min(), Xstd.max()
+    norm_max = norm_max or _max
+    norm_min = norm_min or _min
+    if (_max - _min) > eps:
+        # Normalize to [0, 255]
+        V = Xstd
+        V[V < norm_min] = norm_min
+        V[V > norm_max] = norm_max
+        V = 255 * (V - norm_min) / (norm_max - norm_min)
+        V = V.astype(np.uint8)
+    else:
+        # Just zero
+        V = np.zeros_like(Xstd, dtype=np.uint8)
+    return V
+
+
+def build_composer(
+    sample_rate,
+    img_size,
+    melspectrogram_parameters={},
+    waveform_transforms=None,
+    spectrogram_transforms=None,
+):
+    def composer(x):
+        if waveform_transforms:
+            x = waveform_transforms(x)
+        melspec = librosa.feature.melspectrogram(
+            x, sr=sample_rate, **melspectrogram_parameters
+        )
+        melspec = librosa.power_to_db(melspec).astype(np.float32)
+        if spectrogram_transforms:
+            melspec = spectrogram_transforms(melspec)
+
+        image = mono_to_color(melspec)
+        height, width, _ = image.shape
+        image = cv2.resize(image, (int(width * img_size / height), img_size))
+        image = np.moveaxis(image, 2, 0)
+        image = (image / 255.0).astype(np.float32)
+        return image
+
+    return composer

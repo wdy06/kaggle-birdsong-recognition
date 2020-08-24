@@ -39,7 +39,8 @@ train_audio_dir = utils.DATA_DIR / "train_resampled"
 
 SAMPLE_RATE = 32000
 NUM_WORKERS = 64
-BATCH_SIZE = 256
+BATCH_SIZE = 512
+IMAGE_SIZE = 224
 # BATCH_SIZE = 10
 if args.debug:
     EPOCH = 1
@@ -63,12 +64,15 @@ for trn_idx, val_idx in kfold.split(df, y=df.ebird_code):
 train_df = df.iloc[trn_idx].reset_index(drop=True)
 val_df = df.iloc[val_idx].reset_index(drop=True)
 
+composer = utils.build_composer(sample_rate=SAMPLE_RATE, img_size=IMAGE_SIZE)
 # train_ds = datasets.DummyDataSet(len(train_df), shape=(3, 224, 224))
 # valid_ds = datasets.DummyDataSet(len(val_df), shape=(3, 224, 224))
 train_ds = datasets.SpectrogramDataset(
-    train_df, train_audio_dir, sample_rate=SAMPLE_RATE
+    train_df, train_audio_dir, sample_rate=SAMPLE_RATE, composer=composer
 )
-valid_ds = datasets.SpectrogramDataset(val_df, train_audio_dir, sample_rate=SAMPLE_RATE)
+valid_ds = datasets.SpectrogramDataset(
+    val_df, train_audio_dir, sample_rate=SAMPLE_RATE, composer=composer
+)
 # train_ds = datasets.SpectrogramDataset(
 #     train_set,
 #     classes,
