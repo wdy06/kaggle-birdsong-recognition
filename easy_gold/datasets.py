@@ -43,12 +43,8 @@ class SpectrogramDataset(Dataset):
         self.df = df
         self.datadir = datadir
         self.sample_rate = sample_rate
-        # self.img_size = img_size
         self.period = period
         self.composer = composer
-        # self.waveform_transforms = waveform_transforms
-        # self.spectrogram_transforms = spectrogram_transforms
-        # self.melspectrogram_parameters = melspectrogram_parameters
 
     def __len__(self):
         return len(self.df)
@@ -82,31 +78,10 @@ class SpectrogramDataset(Dataset):
 
         if self.composer:
             y = self.composer(y)
-        # if self.waveform_transforms:
-        #     y = self.waveform_transforms(y)
-
-        # melspec = librosa.feature.melspectrogram(
-        #     y, sr=self.sample_rate, **self.melspectrogram_parameters
-        # )
-        # melspec = librosa.power_to_db(melspec).astype(np.float32)
-
-        # if self.spectrogram_transforms:
-        #     melspec = self.spectrogram_transforms(melspec)
-        # else:
-        #     pass
-
-        # image = mono_to_color(melspec)
-        # height, width, _ = image.shape
-        # image = cv2.resize(image, (int(width * self.img_size / height), self.img_size))
-        # image = np.moveaxis(image, 2, 0)
-        # image = (image / 255.0).astype(np.float32)
 
         labels = np.zeros(len(utils.BIRD_CODE), dtype=int)
         labels[utils.BIRD_CODE[ebird_code]] = 1
-        # print(wav_path)
-        # print(image)
         return {"image": y, "targets": labels}
-        # return {"image": y, "targets": labels}
 
 
 class OldSpectrogramDataset(Dataset):
