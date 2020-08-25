@@ -22,6 +22,8 @@ parser.add_argument("--multi", help="use multi gpu", action="store_true")
 # parser.add_argument('--config', '-c', type=str, help='path to config')
 args = parser.parse_args()
 
+utils.seed_everything()
+
 print(f"found {torch.cuda.device_count()} gpus !!")
 
 exp_name = utils.make_experiment_name(args.debug)
