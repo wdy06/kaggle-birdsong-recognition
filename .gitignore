@@ -3,3 +3,4 @@ data/
 results/
 *.csv
 easy_gold/__pycache__/
+outputs/
