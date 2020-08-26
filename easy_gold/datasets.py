@@ -78,9 +78,9 @@ class SpectrogramDataset(Dataset):
 
         if self.composer:
             y = self.composer(y)
-
         labels = np.zeros(len(utils.BIRD_CODE), dtype=int)
-        labels[utils.BIRD_CODE[ebird_code]] = 1
+        if ebird_code != "nocall":
+            labels[utils.BIRD_CODE[ebird_code]] = 1
         return {"image": y, "targets": labels}
 
 

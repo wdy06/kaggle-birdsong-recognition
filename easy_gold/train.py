@@ -37,7 +37,8 @@ df = pd.read_csv(utils.DATA_DIR / "train.csv")
 # remove row becase XC195038.mp3 cannot load
 df = df.drop(df[df.filename == "XC195038.mp3"].index)
 # train_audio_dir = utils.DATA_DIR / "train_audio"
-train_audio_dir = utils.DATA_DIR / "train_resampled"
+train_audio_dir = utils.DATA_DIR / "train_resampled_with_nocall"
+nocall_df = pd.read_csv(utils.DATA_DIR / "nocall.csv")
 
 SAMPLE_RATE = 32000
 NUM_WORKERS = 64
@@ -52,12 +53,6 @@ if args.debug:
 else:
     EPOCH = 20
 
-# classes = pd.read_pickle(utils.DATA_DIR / "classes.pkl")
-# train_set = pd.read_pickle(utils.DATA_DIR / "train_set.pkl")
-# val_set = pd.read_pickle(utils.DATA_DIR / "val_set.pkl")
-
-# utils.dump_pickle(classes, RESULT_DIR / "classes.pkl")
-# group_kfold = GroupKFold(n_splits=5)
 kfold = StratifiedKFold(n_splits=5)
 for trn_idx, val_idx in kfold.split(df, y=df.ebird_code):
     print(len(trn_idx))
@@ -65,27 +60,17 @@ for trn_idx, val_idx in kfold.split(df, y=df.ebird_code):
 
 train_df = df.iloc[trn_idx].reset_index(drop=True)
 val_df = df.iloc[val_idx].reset_index(drop=True)
+# concat nocall df
+val_df = pd.concat([val_df, nocall_df]).reset_index()
 
 composer = utils.build_composer(sample_rate=SAMPLE_RATE, img_size=IMAGE_SIZE)
-# train_ds = datasets.DummyDataSet(len(train_df), shape=(3, 224, 224))
-# valid_ds = datasets.DummyDataSet(len(val_df), shape=(3, 224, 224))
+
 train_ds = datasets.SpectrogramDataset(
     train_df, train_audio_dir, sample_rate=SAMPLE_RATE, composer=composer
 )
 valid_ds = datasets.SpectrogramDataset(
     val_df, train_audio_dir, sample_rate=SAMPLE_RATE, composer=composer
 )
-# train_ds = datasets.SpectrogramDataset(
-#     train_set,
-#     classes,
-#     sample_rate=SAMPLE_RATE,
-#     len_mult=100,
-#     spec_max=80,
-#     spec_min=-100,
-# )
-# valid_ds = datasets.SpectrogramDataset(
-#     val_set, classes, sample_rate=SAMPLE_RATE, len_mult=20
-# )
 
 print(len(train_ds), len(valid_ds))
 
@@ -133,7 +118,8 @@ for epoch in range(EPOCH):
         inputs, labels = data["image"].cuda(), data["targets"].cuda()
         optimizer.zero_grad()
 
-        # outputs = model(inputs).double()
+        # outputs = model(inputs).double()i
+
         outputs = model(inputs)
         loss = criterion(outputs, labels.float())
         loss.backward()
@@ -165,7 +151,7 @@ for epoch in range(EPOCH):
         # val_loss = criterion(preds, targs)
 
     threshold = 0.5
-    # preds = model_utils.sigmoid_np(preds)
+
     score = f1_score(preds > threshold, targs, average="micro")
     print(
         f"[{epoch + 1}, {time.time() - t0:.1f}] loss: {running_loss / (len(train_dl)-1):.4f}, val loss {val_loss:.4f},f1 score: {score:.4f}"
