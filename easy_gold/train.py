@@ -1,4 +1,5 @@
 import argparse
+import logging
 import os
 import time
 
@@ -17,20 +18,22 @@ import hydra
 import model_utils
 import utils
 
+logger = logging.getLogger(__name__)
+
 
 @hydra.main(config_path="configs/config.yml")
 def main(cfg):
-    print(cfg.pretty())
-    print(os.getcwd())
-    print(hydra.utils.get_original_cwd())
+    logger.info(cfg.pretty())
+    logger.info(os.getcwd())
+    logger.info(hydra.utils.get_original_cwd())
     utils.seed_everything()
 
-    print(f"found {torch.cuda.device_count()} gpus !!")
+    logger.info(f"found {torch.cuda.device_count()} gpus !!")
 
-    exp_name = utils.make_experiment_name(cfg.debug)
-    RESULT_DIR = utils.RESULTS_BASE_DIR / exp_name
-    os.mkdir(RESULT_DIR)
-    print(f"created: {RESULT_DIR}")
+    # exp_name = utils.make_experiment_name(cfg.debug)
+    # RESULT_DIR = utils.RESULTS_BASE_DIR / exp_name
+    # os.mkdir(RESULT_DIR)
+    # print(f"created: {RESULT_DIR}")
 
     device = torch.device("cuda:0")
 
@@ -48,16 +51,17 @@ def main(cfg):
     # BATCH_SIZE = 10
     if cfg.debug:
         EPOCH = 1
-        print(len(df))
+        logger.info(len(df))
         df = df[:1000]
-        print("running debug mode...")
+        logger.info("running debug mode...")
     else:
         EPOCH = cfg.epoch
 
     kfold = StratifiedKFold(n_splits=5)
     for trn_idx, val_idx in kfold.split(df, y=df.ebird_code):
-        print(len(trn_idx))
-        print(len(val_idx))
+        pass
+    logger.info(len(trn_idx))
+    logger.info(len(val_idx))
 
     train_df = df.iloc[trn_idx].reset_index(drop=True)
     val_df = df.iloc[val_idx].reset_index(drop=True)
@@ -73,7 +77,7 @@ def main(cfg):
         val_df, train_audio_dir, sample_rate=SAMPLE_RATE, composer=composer
     )
 
-    print(len(train_ds), len(valid_ds))
+    logging.info(f"train_ds: {len(train_ds)}, valid_ds: {len(valid_ds)}")
 
     train_dl = torch.utils.data.DataLoader(
         train_ds,
@@ -92,10 +96,10 @@ def main(cfg):
 
     model_name = "base_resnet50"
     model = model_utils.build_model(
-        model_name, n_class=len(utils.BIRD_CODE), pretrained=False
+        model_name, n_class=len(utils.BIRD_CODE), pretrained=True
     )
     if cfg.multi:
-        print("Using pararell gpu")
+        logger.info("Using pararell gpu")
         model = nn.DataParallel(model)
         # model = DDP(model)
 
@@ -106,7 +110,7 @@ def main(cfg):
     optimizer = optim.Adam(model.parameters(), 1e-3)
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 10)
 
-    print("start training...")
+    logger.info("start training...")
     for epoch in range(EPOCH):
         t0 = time.time()
         running_loss = 0.0
@@ -153,15 +157,15 @@ def main(cfg):
         threshold = cfg.threshold
 
         score = f1_score(preds > threshold, targs, average="micro")
-        print(
+        logger.info(
             f"[{epoch + 1}, {time.time() - t0:.1f}] loss: {running_loss / (len(train_dl)-1):.4f}, val loss {val_loss:.4f},f1 score: {score:.4f}"
         )
         running_loss = 0.0
 
-    model_path = RESULT_DIR / "model.pth"
+    model_path = "model.pth"
     model_utils.save_pytorch_model(model, model_path)
-    print(f"save model to {model_path}")
-    print("finish !!")
+    logger.info(f"save model to {model_path}")
+    logger.info("finish !!")
 
 
 if __name__ == "__main__":
