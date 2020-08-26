@@ -13,16 +13,21 @@ from torch import nn
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 import datasets
+import hydra
 import model_utils
 import utils
 
 
-def main(args):
+@hydra.main(config_path="configs/config.yml")
+def main(cfg):
+    print(cfg.pretty())
+    print(os.getcwd())
+    print(hydra.utils.get_original_cwd())
     utils.seed_everything()
 
     print(f"found {torch.cuda.device_count()} gpus !!")
 
-    exp_name = utils.make_experiment_name(args.debug)
+    exp_name = utils.make_experiment_name(cfg.debug)
     RESULT_DIR = utils.RESULTS_BASE_DIR / exp_name
     os.mkdir(RESULT_DIR)
     print(f"created: {RESULT_DIR}")
@@ -36,18 +41,18 @@ def main(args):
     train_audio_dir = utils.DATA_DIR / "train_resampled_with_nocall"
     nocall_df = pd.read_csv(utils.DATA_DIR / "nocall.csv")
 
-    SAMPLE_RATE = 32000
-    NUM_WORKERS = 64
-    BATCH_SIZE = 512
-    IMAGE_SIZE = 224
+    SAMPLE_RATE = cfg.sample_rate
+    NUM_WORKERS = cfg.num_workers
+    BATCH_SIZE = cfg.batch_size
+    IMAGE_SIZE = cfg.image_size
     # BATCH_SIZE = 10
-    if args.debug:
+    if cfg.debug:
         EPOCH = 1
         print(len(df))
         df = df[:1000]
         print("running debug mode...")
     else:
-        EPOCH = 20
+        EPOCH = cfg.epoch
 
     kfold = StratifiedKFold(n_splits=5)
     for trn_idx, val_idx in kfold.split(df, y=df.ebird_code):
@@ -89,7 +94,7 @@ def main(args):
     model = model_utils.build_model(
         model_name, n_class=len(utils.BIRD_CODE), pretrained=False
     )
-    if args.multi:
+    if cfg.multi:
         print("Using pararell gpu")
         model = nn.DataParallel(model)
         # model = DDP(model)
@@ -145,7 +150,7 @@ def main(args):
             val_loss /= len(valid_dl)
             # val_loss = criterion(preds, targs)
 
-        threshold = 0.5
+        threshold = cfg.threshold
 
         score = f1_score(preds > threshold, targs, average="micro")
         print(
@@ -160,11 +165,4 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="aptos2019 blindness detection on kaggle"
-    )
-    parser.add_argument("--debug", help="run debug mode", action="store_true")
-    parser.add_argument("--multi", help="use multi gpu", action="store_true")
-    # parser.add_argument('--config', '-c', type=str, help='path to config')
-    args = parser.parse_args()
-    main(args)
+    main()
