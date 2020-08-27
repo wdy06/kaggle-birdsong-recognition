@@ -4,13 +4,16 @@ import pickle
 import random
 import warnings
 from datetime import datetime
+from functools import partial
 from pathlib import Path
 
 import cv2
 import numpy as np
 import pandas as pd
+import scipy
 import torch
 import yaml
+from sklearn.metrics.classification import f1_score
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -354,6 +357,13 @@ def load_yaml(path):
         return yaml.safe_load(f)
 
 
+def one_hot_encode(ebird_code):
+    labels = np.zeros(len(BIRD_CODE), dtype=int)
+    if ebird_code != "nocall":
+        labels[BIRD_CODE[ebird_code]] = 1
+    return labels
+
+
 def prediction_for_clip(
     test_df: pd.DataFrame,
     clip: np.ndarray,
@@ -547,3 +557,23 @@ def build_composer(
         return image
 
     return composer
+
+
+class OptimizeRounder:
+    def __init__(self, n_class):
+        self._coef = 0
+        self.n_class = n_class
+
+    def _f1_score(self, threshold, y_true, y_pred):
+        score = f1_score(y_true, y_pred > threshold, average="micro")
+        return -score
+
+    def fit(self, y_true, y_pred):
+        init_threshold = np.full(self.n_class, 0.5)
+        score_partial = partial(self._f1_score, y_true=y_true, y_pred=y_pred)
+        self._coef = scipy.optimize.minimize(
+            score_partial, init_threshold, method="nelder-mead"
+        )
+
+    def coefficients(self):
+        return self._coef["x"]

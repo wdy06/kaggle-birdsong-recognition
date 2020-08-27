@@ -30,11 +30,6 @@ def main(cfg):
 
     logger.info(f"found {torch.cuda.device_count()} gpus !!")
 
-    # exp_name = utils.make_experiment_name(cfg.debug)
-    # RESULT_DIR = utils.RESULTS_BASE_DIR / exp_name
-    # os.mkdir(RESULT_DIR)
-    # print(f"created: {RESULT_DIR}")
-
     device = torch.device("cuda:0")
 
     df = pd.read_csv(utils.DATA_DIR / "train.csv")
@@ -49,6 +44,10 @@ def main(cfg):
     BATCH_SIZE = cfg.batch_size
     IMAGE_SIZE = cfg.image_size
     # BATCH_SIZE = 10
+
+    n_class = len(utils.BIRD_CODE)
+    best_model_path = "best_model.pth"
+
     if cfg.debug:
         EPOCH = 1
         logger.info(len(df))
@@ -94,10 +93,8 @@ def main(cfg):
         pin_memory=True,
     )
 
-    model_name = "base_resnet50"
-    model = model_utils.build_model(
-        model_name, n_class=len(utils.BIRD_CODE), pretrained=True
-    )
+    model_name = cfg.model.name
+    model = model_utils.build_model(model_name, n_class=n_class, pretrained=True)
     if cfg.multi:
         logger.info("Using pararell gpu")
         model = nn.DataParallel(model)
@@ -107,10 +104,11 @@ def main(cfg):
 
     # criterion = nn.CrossEntropyLoss()
     criterion = nn.BCELoss()
-    optimizer = optim.Adam(model.parameters(), 1e-3)
+    optimizer = optim.Adam(model.parameters(), float(cfg.learning_rate))
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 10)
 
     logger.info("start training...")
+    best_val_score = 1000000
     for epoch in range(EPOCH):
         t0 = time.time()
         running_loss = 0.0
@@ -160,11 +158,31 @@ def main(cfg):
         logger.info(
             f"[{epoch + 1}, {time.time() - t0:.1f}] loss: {running_loss / (len(train_dl)-1):.4f}, val loss {val_loss:.4f},f1 score: {score:.4f}"
         )
-        running_loss = 0.0
+        is_best = bool(val_loss < best_val_score)
+        if is_best:
+            best_val_score = val_loss
+            logger.info(
+                f"update best score !! current best score: {best_val_score:.5} !!"
+            )
+            model_utils.save_pytorch_model(model, best_model_path)
 
     model_path = "model.pth"
     model_utils.save_pytorch_model(model, model_path)
     logger.info(f"save model to {model_path}")
+    best_model = model_utils.load_pytorch_model(
+        model_name=model_name, path=best_model_path, n_class=n_class
+    )
+    preds = model_utils.predict(best_model, valid_dl, n_class, device)
+    rounder = utils.OptimizeRounder(n_class)
+    # y_true = val_df.ebird_code.map(lambda x: utils.one_hot_encode(x))
+    y_true = np.array(val_df.ebird_code.map(lambda x: utils.one_hot_encode(x)).tolist())
+    rounder.fit(y_true, preds)
+    print(rounder.coefficients())
+    utils.dump_json(rounder.coefficients(), "threshold.json")
+
+    # optimize threshold
+
+    # print(preds)
     logger.info("finish !!")
 
 

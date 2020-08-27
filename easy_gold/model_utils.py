@@ -70,8 +70,8 @@ def predict(model, dataloader, n_class, device, tta=1):
         model.eval()
         model.to(device)
         preds = np.zeros([0, n_class])
-        for data, _ in dataloader:
-            data = data.to(device)
+        for data in dataloader:
+            data = data["image"].to(device)
             with torch.no_grad():
                 y_pred = model(data).detach()
             # y_pred = F.softmax(y_pred, dim=1).cpu().numpy()
