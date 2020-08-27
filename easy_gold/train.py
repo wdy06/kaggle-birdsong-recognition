@@ -113,7 +113,7 @@ def main(cfg):
         # training phase
         model.train()
         for i, (data) in enumerate(train_dl, 0):
-            inputs, labels = data["image"].cuda(), data["targets"].cuda()
+            inputs, labels = data["image"].to(device), data["targets"].to(device)
             optimizer.zero_grad()
 
             outputs = model(inputs)
@@ -132,7 +132,7 @@ def main(cfg):
 
         with torch.no_grad():
             for data in valid_dl:
-                inputs, labels = data["image"].cuda(), data["targets"].cuda()
+                inputs, labels = data["image"].to(device), data["targets"].to(device)
                 outputs = model(inputs)
                 val_loss += criterion(outputs, labels.float())
                 preds.append(outputs.cpu().detach().numpy())
