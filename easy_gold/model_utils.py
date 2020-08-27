@@ -1,9 +1,11 @@
+import time
 from collections import OrderedDict
 
 import numpy as np
 import pandas as pd
 import torch
 import torchvision
+from sklearn.metrics import f1_score
 from torch import nn
 from tqdm import tqdm
 
@@ -90,3 +92,79 @@ def predict(model, dataloader, n_class, device, tta=1):
 
 def sigmoid_np(x):
     return 1.0 / (1.0 + np.exp(-x))
+
+
+def train_model(
+    epoch,
+    model,
+    train_loader,
+    val_loader,
+    optimizer,
+    scheduler,
+    criterion,
+    device,
+    threshold,
+    best_model_path,
+    logger,
+):
+    best_val_score = 1000000
+    for epoch in range(epoch):
+        t0 = time.time()
+        # training phase
+        running_loss = train_1epoch(
+            model, train_loader, optimizer, scheduler, criterion, device
+        )
+
+        # validation phase
+        preds, targs, val_loss = validation(model, val_loader, criterion, device)
+
+        score = f1_score(preds > threshold, targs, average="micro")
+        logger.info(
+            f"[{epoch + 1}, {time.time() - t0:.1f}] loss: {running_loss:.4f}, val loss {val_loss:.4f},f1 score: {score:.4f}"
+        )
+        is_best = bool(val_loss < best_val_score)
+        if is_best:
+            best_val_score = val_loss
+            logger.info(
+                f"update best score !! current best loss: {best_val_score:.5} !!"
+            )
+            save_pytorch_model(model, best_model_path)
+
+
+def train_1epoch(model, data_loader, optimizer, scheduler, criterion, device):
+    running_loss = 0.0
+    model.train()
+    for data in data_loader:
+        inputs, labels = data["image"].to(device), data["targets"].to(device)
+        optimizer.zero_grad()
+
+        outputs = model(inputs)
+        loss = criterion(outputs, labels.float())
+        loss.backward()
+        optimizer.step()
+        scheduler.step()
+
+        running_loss += loss.item()
+    running_loss /= len(data_loader)
+    return running_loss
+
+
+def validation(model, data_loader, criterion, device):
+    val_loss = 0.0
+    model.eval()
+    preds = []
+    targs = []
+
+    with torch.no_grad():
+        for data in data_loader:
+            inputs, labels = data["image"].to(device), data["targets"].to(device)
+            outputs = model(inputs)
+            val_loss += criterion(outputs, labels.float())
+            preds.append(outputs.cpu().detach().numpy())
+            targs.append(labels.cpu().detach().numpy())
+
+        preds = np.concatenate(preds)
+        targs = np.concatenate(targs)
+        val_loss /= len(data_loader)
+
+    return preds, targs, val_loss

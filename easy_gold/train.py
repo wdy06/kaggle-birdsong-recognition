@@ -106,55 +106,19 @@ def main(cfg):
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 10)
 
     logger.info("start training...")
-    best_val_score = 1000000
-    for epoch in range(EPOCH):
-        t0 = time.time()
-        running_loss = 0.0
-        # training phase
-        model.train()
-        for i, (data) in enumerate(train_dl, 0):
-            inputs, labels = data["image"].to(device), data["targets"].to(device)
-            optimizer.zero_grad()
-
-            outputs = model(inputs)
-            loss = criterion(outputs, labels.float())
-            loss.backward()
-            optimizer.step()
-            scheduler.step()
-
-            running_loss += loss.item()
-
-        # validation phase
-        val_loss = 0.0
-        model.eval()
-        preds = []
-        targs = []
-
-        with torch.no_grad():
-            for data in valid_dl:
-                inputs, labels = data["image"].to(device), data["targets"].to(device)
-                outputs = model(inputs)
-                val_loss += criterion(outputs, labels.float())
-                preds.append(outputs.cpu().detach().numpy())
-                targs.append(labels.cpu().detach().numpy())
-
-            preds = np.concatenate(preds)
-            targs = np.concatenate(targs)
-            val_loss /= len(valid_dl)
-
-        threshold = cfg.threshold
-
-        score = f1_score(preds > threshold, targs, average="micro")
-        logger.info(
-            f"[{epoch + 1}, {time.time() - t0:.1f}] loss: {running_loss / (len(train_dl)-1):.4f}, val loss {val_loss:.4f},f1 score: {score:.4f}"
-        )
-        is_best = bool(val_loss < best_val_score)
-        if is_best:
-            best_val_score = val_loss
-            logger.info(
-                f"update best score !! current best score: {best_val_score:.5} !!"
-            )
-            model_utils.save_pytorch_model(model, best_model_path)
+    model_utils.train_model(
+        epoch=EPOCH,
+        model=model,
+        train_loader=train_dl,
+        val_loader=valid_dl,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        criterion=criterion,
+        device=device,
+        threshold=cfg.threshold,
+        best_model_path=best_model_path,
+        logger=logger,
+    )
 
     model_path = "model.pth"
     model_utils.save_pytorch_model(model, model_path)
