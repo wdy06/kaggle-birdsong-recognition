@@ -98,11 +98,9 @@ def main(cfg):
     if cfg.multi:
         logger.info("Using pararell gpu")
         model = nn.DataParallel(model)
-        # model = DDP(model)
 
     model.to(device)
 
-    # criterion = nn.CrossEntropyLoss()
     criterion = nn.BCELoss()
     optimizer = optim.Adam(model.parameters(), float(cfg.learning_rate))
     scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 10)
@@ -115,12 +113,8 @@ def main(cfg):
         # training phase
         model.train()
         for i, (data) in enumerate(train_dl, 0):
-            # print("-" * 10)
-            # inputs, labels = data[0].cuda(), data[1].cuda()
             inputs, labels = data["image"].cuda(), data["targets"].cuda()
             optimizer.zero_grad()
-
-            # outputs = model(inputs).double()i
 
             outputs = model(inputs)
             loss = criterion(outputs, labels.float())
@@ -132,7 +126,6 @@ def main(cfg):
 
         # validation phase
         val_loss = 0.0
-        # if i % len(train_dl) == len(train_dl) - 1:
         model.eval()
         preds = []
         targs = []
@@ -140,8 +133,6 @@ def main(cfg):
         with torch.no_grad():
             for data in valid_dl:
                 inputs, labels = data["image"].cuda(), data["targets"].cuda()
-                # inputs = data.to(device)
-                # outputs = model(inputs).double()
                 outputs = model(inputs)
                 val_loss += criterion(outputs, labels.float())
                 preds.append(outputs.cpu().detach().numpy())
@@ -150,7 +141,6 @@ def main(cfg):
             preds = np.concatenate(preds)
             targs = np.concatenate(targs)
             val_loss /= len(valid_dl)
-            # val_loss = criterion(preds, targs)
 
         threshold = cfg.threshold
 
@@ -172,15 +162,15 @@ def main(cfg):
     best_model = model_utils.load_pytorch_model(
         model_name=model_name, path=best_model_path, n_class=n_class
     )
-    preds = model_utils.predict(best_model, valid_dl, n_class, device)
-    rounder = utils.OptimizeRounder(n_class)
-    # y_true = val_df.ebird_code.map(lambda x: utils.one_hot_encode(x))
-    y_true = np.array(val_df.ebird_code.map(lambda x: utils.one_hot_encode(x)).tolist())
-    rounder.fit(y_true, preds)
-    print(rounder.coefficients())
-    utils.dump_json(rounder.coefficients(), "threshold.json")
 
     # optimize threshold
+    preds = model_utils.predict(best_model, valid_dl, n_class, device)
+    rounder = utils.OptimizeRounder(n_class)
+    y_true = np.array(val_df.ebird_code.map(lambda x: utils.one_hot_encode(x)).tolist())
+    rounder.fit(y_true, preds)
+    utils.dump_json(rounder.coefficients(), "threshold.json")
+    best_val_score = f1_score(y_true, preds > rounder.coefficients(), average="micro")
+    logger.info(f"best f1_score: {best_val_score}")
 
     # print(preds)
     logger.info("finish !!")
