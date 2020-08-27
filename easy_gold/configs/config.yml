@@ -2,10 +2,14 @@ sample_rate: 32000
 num_workers: 64
 batch_size: 512
 image_size: 224
-epoch: 20
+learning_rate: 1e-3
+epoch: 50
 threshold: 0.5
 debug: false
 multi: true
+
+model:
+  name: base_resnet50
 
 hydra:
   run:
