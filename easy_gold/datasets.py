@@ -62,11 +62,9 @@ class SpectrogramDataset(Dataset):
         effective_length = self.sample_rate * self.period
         try:
             if duration > self.period:
+                offset = int(np.random.rand() * (duration - self.period - 1))
                 y, _ = librosa.load(
-                    wav_path,
-                    sr=self.sample_rate,
-                    offset=int(np.random.rand() * (duration - self.period)),
-                    duration=self.period,
+                    wav_path, sr=self.sample_rate, offset=offset, duration=self.period,
                 )
             else:
                 y, _ = librosa.load(wav_path, sr=self.sample_rate)
@@ -78,9 +76,9 @@ class SpectrogramDataset(Dataset):
 
         if self.composer:
             y = self.composer(y)
-        # labels = np.zeros(len(utils.BIRD_CODE), dtype=int)
-        # if ebird_code != "nocall":
-        #     labels[utils.BIRD_CODE[ebird_code]] = 1
+        # if image.shape != (3, 224, 547):
+        #     print(wav_path, duration, len(y), offset)
+
         labels = utils.one_hot_encode(ebird_code)
         return {"image": y, "targets": labels}
 
