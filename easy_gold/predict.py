@@ -25,10 +25,17 @@ model_dir = Path(args.model_dir)
 config_path = model_dir / ".hydra" / "config.yaml"
 config = utils.load_yaml(config_path)
 
-model_path = model_dir / "best_model.pth"
-model = model_utils.load_pytorch_model(
-    model_name=config["model"]["name"], path=model_path, n_class=len(utils.BIRD_CODE)
-)
+model_config_list = []
+model_config = {
+    "path": model_dir / "best_model.pth",
+    "model_name": config["model"]["name"],
+    "n_class": len(utils.BIRD_CODE),
+}
+model_config_list.append(model_config)
+# model_path = model_dir / "best_model.pth"
+# model = model_utils.load_pytorch_model(
+#     model_name=config["model"]["name"], path=model_path, n_class=len(utils.BIRD_CODE)
+# )
 
 threshold = utils.load_json(model_dir / "threshold.json")
 # test_df = pd.read_csv(utils.DATA_DIR / "test.csv")
@@ -47,7 +54,7 @@ submission = utils.prediction(
     test_df=test_df,
     test_audio=test_audio_dir,
     ds_class=datasets.SpectrogramDataset,
-    model=model,
+    model_list=model_config_list,
     composer=composer,
     sample_rate=config["sample_rate"],
     threshold=threshold,

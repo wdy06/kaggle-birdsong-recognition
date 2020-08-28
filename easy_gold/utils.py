@@ -13,11 +13,12 @@ import pandas as pd
 import scipy
 import torch
 import yaml
-from sklearn.metrics.classification import f1_score
+from sklearn.metrics import f1_score
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import librosa
+import model_utils
 
 # ON_KAGGLE: bool = 'KAGGLE_WORKING_DIR' in os.environ
 ON_KAGGLE: bool = "KAGGLE_URL_BASE" in os.environ
@@ -369,16 +370,16 @@ def prediction_for_clip(
     clip: np.ndarray,
     ds_class,
     sample_rate,
-    model,
+    model_list,
     composer=None,
     threshold=0.5,
 ):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model.to(device)
+    # model.to(device)
 
-    model.eval()
+    # model.eval()
     prediction_dict = {}
     for idx in tqdm(range(len(test_df))):
         record = test_df.loc[idx, :]
@@ -396,11 +397,16 @@ def prediction_for_clip(
             image = image[np.newaxis, :, :, :]
             image = torch.Tensor(image)
             image = image.to(device)
-
-            with torch.no_grad():
-                prediction = model(image)
-                #                 proba = prediction["multilabel_proba"].detach().cpu().numpy().reshape(-1)
-                proba = prediction.detach().cpu().numpy().reshape(-1)
+            proba = 0
+            for config in tqdm(model_list):
+                model = model_utils.load_pytorch_model(**config)
+                model.to(device)
+                model.eval()
+                with torch.no_grad():
+                    prediction = model(image)
+                    #                 proba = prediction["multilabel_proba"].detach().cpu().numpy().reshape(-1)
+                    proba += prediction.detach().cpu().numpy().reshape(-1)
+            proba /= len(model_list)
 
             events = proba >= threshold
             labels = np.argwhere(events).reshape(-1).tolist()
@@ -439,10 +445,15 @@ def prediction_for_clip(
                     batch = batch.unsqueeze(0)
 
                 batch = batch.to(device)
-                with torch.no_grad():
-                    prediction = model(batch)
-                    #                     proba = prediction["multilabel_proba"].detach().cpu().numpy()
-                    proba = prediction.detach().cpu().numpy()
+                proba = 0
+                for config in tqdm(model_list):
+                    model = model_utils.load_pytorch_model(**config)
+                    model.to(device)
+                    model.eval()
+                    with torch.no_grad():
+                        prediction = model(batch)
+                        proba += prediction.detach().cpu().numpy()
+                proba /= len(model_list)
 
                 events = proba >= threshold
                 for i in range(len(events)):
@@ -467,7 +478,7 @@ def prediction(
     test_df: pd.DataFrame,
     test_audio: Path,
     ds_class,
-    model,
+    model_list,
     composer=None,
     sample_rate=32000,
     threshold=0.5,
@@ -492,7 +503,7 @@ def prediction(
             clip=clip,
             ds_class=ds_class,
             sample_rate=sample_rate,
-            model=model,
+            model_list=model_list,
             composer=composer,
             threshold=threshold,
         )

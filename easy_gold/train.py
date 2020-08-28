@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import time
+from logging import log
 
 import numpy as np
 import pandas as pd
@@ -17,6 +18,7 @@ import datasets
 import hydra
 import model_utils
 import utils
+from runner import Runner
 
 logger = logging.getLogger(__name__)
 
@@ -40,103 +42,59 @@ def main(cfg):
     nocall_df = pd.read_csv(utils.DATA_DIR / "nocall.csv")
 
     SAMPLE_RATE = cfg.sample_rate
-    NUM_WORKERS = cfg.num_workers
-    BATCH_SIZE = cfg.batch_size
     IMAGE_SIZE = cfg.image_size
-    # BATCH_SIZE = 10
 
     n_class = len(utils.BIRD_CODE)
-    best_model_path = "best_model.pth"
+    # best_model_path = "best_model.pth"
 
     if cfg.debug:
-        EPOCH = 1
         logger.info(len(df))
         df = df[:1000]
         logger.info("running debug mode...")
     else:
         EPOCH = cfg.epoch
 
+    fold_indices = []
     kfold = StratifiedKFold(n_splits=5)
     for trn_idx, val_idx in kfold.split(df, y=df.ebird_code):
-        pass
-    logger.info(len(trn_idx))
-    logger.info(len(val_idx))
+        fold_indices.append((trn_idx, val_idx))
 
-    train_df = df.iloc[trn_idx].reset_index(drop=True)
-    val_df = df.iloc[val_idx].reset_index(drop=True)
-    # concat nocall df
-    val_df = pd.concat([val_df, nocall_df]).reset_index()
+    if cfg.debug:
+        fold_indices = [fold_indices[0]]
 
     composer = utils.build_composer(sample_rate=SAMPLE_RATE, img_size=IMAGE_SIZE)
 
-    train_ds = datasets.SpectrogramDataset(
-        train_df, train_audio_dir, sample_rate=SAMPLE_RATE, composer=composer
-    )
-    valid_ds = datasets.SpectrogramDataset(
-        val_df, train_audio_dir, sample_rate=SAMPLE_RATE, composer=composer
-    )
-
-    logging.info(f"train_ds: {len(train_ds)}, valid_ds: {len(valid_ds)}")
-
-    train_dl = torch.utils.data.DataLoader(
-        train_ds,
-        batch_size=BATCH_SIZE,
-        shuffle=True,
-        num_workers=NUM_WORKERS,
-        pin_memory=True,
-    )
-    valid_dl = torch.utils.data.DataLoader(
-        valid_ds,
-        batch_size=BATCH_SIZE,
-        shuffle=False,
-        num_workers=NUM_WORKERS,
-        pin_memory=True,
-    )
-
-    model_name = cfg.model.name
-    model = model_utils.build_model(model_name, n_class=n_class, pretrained=True)
-    if cfg.multi:
-        logger.info("Using pararell gpu")
-        model = nn.DataParallel(model)
-
-    model.to(device)
-
-    criterion = nn.BCELoss()
-    optimizer = optim.Adam(model.parameters(), float(cfg.learning_rate))
-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 10)
-
-    logger.info("start training...")
-    model_utils.train_model(
-        epoch=EPOCH,
-        model=model,
-        train_loader=train_dl,
-        val_loader=valid_dl,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        criterion=criterion,
-        device=device,
-        threshold=cfg.threshold,
-        best_model_path=best_model_path,
+    runner = Runner(
+        df=df,
+        epoch=cfg.epoch,
+        config=cfg,
+        n_class=n_class,
+        composer=composer,
+        data_dir=train_audio_dir,
+        save_dir=".",
         logger=logger,
+        device=device,
+        fold_indices=fold_indices,
     )
 
-    model_path = "model.pth"
-    model_utils.save_pytorch_model(model, model_path)
-    logger.info(f"save model to {model_path}")
-    best_model = model_utils.load_pytorch_model(
-        model_name=model_name, path=best_model_path, n_class=n_class
-    )
+    oof_preds = runner.run_train_cv()
+    print(oof_preds)
+    preds_nocall = runner.run_predict_cv(nocall_df)
+    oof_preds = np.concatenate([oof_preds, preds_nocall], axis=0)
 
     # optimize threshold
-    preds = model_utils.predict(best_model, valid_dl, n_class, device)
     rounder = utils.OptimizeRounder(n_class)
-    y_true = np.array(val_df.ebird_code.map(lambda x: utils.one_hot_encode(x)).tolist())
-    rounder.fit(y_true, preds)
+    df = pd.concat([df, nocall_df], axis=0)
+    y_true = np.array(df.ebird_code.map(lambda x: utils.one_hot_encode(x)).tolist())
+    rounder.fit(y_true, oof_preds)
     utils.dump_json(rounder.coefficients(), "threshold.json")
-    best_val_score = f1_score(y_true, preds > rounder.coefficients(), average="micro")
+    best_val_score = f1_score(
+        y_true, oof_preds > rounder.coefficients(), average="micro"
+    )
     logger.info(f"best f1_score: {best_val_score}")
 
     # print(preds)
+    logger.info(os.getcwd())
     logger.info("finish !!")
 
 

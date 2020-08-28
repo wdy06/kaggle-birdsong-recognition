@@ -107,6 +107,8 @@ def train_model(
     best_model_path,
     logger,
 ):
+
+    model.to(device)
     best_val_score = 1000000
     for epoch in range(epoch):
         t0 = time.time()
