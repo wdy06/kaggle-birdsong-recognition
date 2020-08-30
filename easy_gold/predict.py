@@ -26,12 +26,13 @@ config_path = model_dir / ".hydra" / "config.yaml"
 config = utils.load_yaml(config_path)
 
 model_config_list = []
-model_config = {
-    "path": model_dir / "best_model.pth",
-    "model_name": config["model"]["name"],
-    "n_class": len(utils.BIRD_CODE),
-}
-model_config_list.append(model_config)
+for i in range(5):
+    model_config = {
+        "path": model_dir / f"best_model_fold{i}.pth",
+        "model_name": config["model"]["name"],
+        "n_class": len(utils.BIRD_CODE),
+    }
+    model_config_list.append(model_config)
 # model_path = model_dir / "best_model.pth"
 # model = model_utils.load_pytorch_model(
 #     model_name=config["model"]["name"], path=model_path, n_class=len(utils.BIRD_CODE)
