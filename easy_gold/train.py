@@ -62,7 +62,11 @@ def main(cfg):
     if cfg.debug:
         fold_indices = [fold_indices[0]]
 
-    composer = utils.build_composer(sample_rate=SAMPLE_RATE, img_size=IMAGE_SIZE)
+    composer = utils.build_composer(
+        sample_rate=SAMPLE_RATE,
+        img_size=IMAGE_SIZE,
+        melspectrogram_parameters=cfg.composer.melspectrogram_parameters,
+    )
 
     runner = Runner(
         df=df,

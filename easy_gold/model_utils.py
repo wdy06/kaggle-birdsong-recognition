@@ -9,6 +9,9 @@ from sklearn.metrics import f1_score
 from torch import nn
 from tqdm import tqdm
 
+import timm
+from resnest.torch import resnest50_fast_1s1x64d
+
 
 class Head(nn.Module):
     def __init__(self, n_class):
@@ -33,7 +36,7 @@ class Head(nn.Module):
         x = x.view(x.shape[0], -1)
         for layer in self.layers:
             x = layer(x)
-        x = torch.sigmoid(x)
+        # x = torch.sigmoid(x)
         return x
 
 
@@ -61,13 +64,30 @@ def build_model(model_name, n_class, pretrained=False):
         bottom = nn.Sequential(*list(res50.children())[:6])
         mid = nn.Sequential(*list(res50.children())[6:-2])
         model = nn.Sequential(bottom, mid, Head(n_class))
+
+    elif model_name == "resnest50_fast_1s1x64d":
+        model = resnest50_fast_1s1x64d(pretrained=pretrained)
+        del model.fc
+        # # use the same head as the baseline notebook.
+        model.fc = nn.Sequential(
+            nn.Linear(2048, 1024),
+            nn.ReLU(),
+            nn.Dropout(p=0.2),
+            nn.Linear(1024, 1024),
+            nn.ReLU(),
+            nn.Dropout(p=0.2),
+            nn.Linear(1024, n_class),
+        )
     else:
-        raise ValueError(f"model name {model_name} is not implemented.")
+        model = timm.create_model(
+            model_name, pretrained=pretrained, num_classes=n_class
+        )
+        # raise ValueError(f"model name {model_name} is not implemented.")
 
     return model
 
 
-def predict(model, dataloader, n_class, device, tta=1):
+def predict(model, dataloader, n_class, device, sigmoid=False, tta=1):
     def _predict():
         model.eval()
         model.to(device)
@@ -75,7 +95,10 @@ def predict(model, dataloader, n_class, device, tta=1):
         for data in dataloader:
             data = data["image"].to(device)
             with torch.no_grad():
-                y_pred = model(data).detach()
+                if sigmoid:
+                    y_pred = torch.sigmoid(model(data)).detach()
+                else:
+                    y_pred = model(data).detach()
             # y_pred = F.softmax(y_pred, dim=1).cpu().numpy()
             y_pred = y_pred.cpu().numpy()
             preds = np.concatenate([preds, y_pred])
@@ -139,13 +162,11 @@ def train_1epoch(model, data_loader, optimizer, scheduler, criterion, device):
     for data in data_loader:
         inputs, labels = data["image"].to(device), data["targets"].to(device)
         optimizer.zero_grad()
-
         outputs = model(inputs)
         loss = criterion(outputs, labels.float())
         loss.backward()
         optimizer.step()
         scheduler.step()
-
         running_loss += loss.item()
     running_loss /= len(data_loader)
     return running_loss

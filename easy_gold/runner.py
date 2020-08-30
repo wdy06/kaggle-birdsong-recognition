@@ -80,13 +80,16 @@ class Runner:
                 valid_ds, shuffle=False, **self.config.dataloader
             )
             model = model_utils.build_model(
-                self.config.model.name, n_class=self.n_class, pretrained=True
+                self.config.model.name,
+                n_class=self.n_class,
+                pretrained=self.config.model.pretrained,
             )
             if self.config.multi:
                 self.logger.info("Using pararell gpu")
                 model = nn.DataParallel(model)
 
-            criterion = nn.BCELoss()
+            # criterion = nn.BCELoss()
+            criterion = nn.BCEWithLogitsLoss()
             optimizer = optim.Adam(model.parameters(), float(self.config.learning_rate))
             scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 10)
             best_model_path = self.save_dir / f"best_model_fold{i_fold}.pth"
@@ -108,7 +111,9 @@ class Runner:
                 path=best_model_path,
                 n_class=self.n_class,
             )
-            preds = model_utils.predict(model, valid_dl, self.n_class, self.device)
+            preds = model_utils.predict(
+                model, valid_dl, self.n_class, self.device, sigmoid=True
+            )
             oof_preds[val_idx, :] = preds
         # oof_score = self.metrics(self.y, oof_preds)
         return oof_preds
@@ -129,7 +134,9 @@ class Runner:
             model = model_utils.load_pytorch_model(
                 model_name=self.config.model.name, path=model_path, n_class=self.n_class
             )
-            preds += model_utils.predict(model, dataloader, self.n_class, self.device)
+            preds += model_utils.predict(
+                model, dataloader, self.n_class, self.device, sigmoid=True
+            )
         preds /= len(self.fold_indices)
         return preds
 

@@ -11,8 +11,14 @@ dataloader:
   batch_size: 512
   pin_memory: true
 
+composer:
+  melspectrogram_parameters:
+    n_mels: 128
+    fmin: 20
+    fmax: 16000
 model:
   name: base_resnet50
+  pretrained: true
 
 hydra:
   run:
