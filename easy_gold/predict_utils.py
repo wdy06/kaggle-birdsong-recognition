@@ -69,8 +69,10 @@ def prediction_for_clip(
                 with torch.no_grad():
                     prediction = model(image)
                     #                 proba = prediction["multilabel_proba"].detach().cpu().numpy().reshape(-1)
-                    proba += prediction.detach().cpu().numpy().reshape(-1)
+                    # proba += prediction.detach().cpu().numpy().reshape(-1)
+                    proba += prediction.detach().cpu().numpy()
             proba /= len(model_list)
+            print(proba.shape)
 
             events = proba >= threshold
             labels = np.argwhere(events).reshape(-1).tolist()
@@ -110,13 +112,8 @@ def prediction_for_clip(
                 print(proba.shape)
                 all_proba = np.concatenate([all_proba, proba])
 
-            # events = proba >= threshold
             events = all_proba >= threshold
-            for i in range(len(events)):
-                event = events[i, :]
-                labels = np.argwhere(event).reshape(-1).tolist()
-                for label in labels:
-                    all_events.add(label)
+            all_events = set(np.argwhere(events)[:, 1])
             print(all_proba.shape)
             labels = list(all_events)
             print(labels)
