@@ -141,19 +141,20 @@ def train_model(
         )
 
         # validation phase
-        preds, targs, val_loss = validation(model, val_loader, criterion, device)
+        if val_loader is not None:
+            preds, targs, val_loss = validation(model, val_loader, criterion, device)
 
-        score = f1_score(preds > threshold, targs, average="micro")
-        logger.info(
-            f"[{epoch + 1}, {time.time() - t0:.1f}] loss: {running_loss:.4f}, val loss {val_loss:.4f},f1 score: {score:.4f}"
-        )
-        is_best = bool(val_loss < best_val_score)
-        if is_best:
-            best_val_score = val_loss
+            score = f1_score(preds > threshold, targs, average="micro")
             logger.info(
-                f"update best score !! current best loss: {best_val_score:.5} !!"
+                f"[{epoch + 1}, {time.time() - t0:.1f}] loss: {running_loss:.4f}, val loss {val_loss:.4f},f1 score: {score:.4f}"
             )
-            save_pytorch_model(model, best_model_path)
+            is_best = bool(val_loss < best_val_score)
+            if is_best:
+                best_val_score = val_loss
+                logger.info(
+                    f"update best score !! current best loss: {best_val_score:.5} !!"
+                )
+                save_pytorch_model(model, best_model_path)
 
 
 def train_1epoch(model, data_loader, optimizer, scheduler, criterion, device):

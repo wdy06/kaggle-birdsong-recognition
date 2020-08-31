@@ -141,10 +141,43 @@ class Runner:
         return preds
 
     def run_train_all(self):
-        pass
-        # model_utils.train_model()
-        # model, _ = self.train(self.x, self.y)
-        # model.save_model(self.save_dir / f"{self.run_name}_all.pkl")
+        self.logger.info(f"training on all data...")
+        train_ds = datasets.SpectrogramDataset(
+            self.df,
+            self.data_dir,
+            sample_rate=self.config.sample_rate,
+            composer=self.composer,
+        )
+        train_dl = torch.utils.data.DataLoader(
+            train_ds, shuffle=True, **self.config.dataloader
+        )
+        model = model_utils.build_model(
+            self.config.model.name,
+            n_class=self.n_class,
+            pretrained=self.config.model.pretrained,
+        )
+        if self.config.multi:
+            self.logger.info("Using pararell gpu")
+            model = nn.DataParallel(model)
+
+        criterion = nn.BCEWithLogitsLoss()
+        optimizer = optim.Adam(model.parameters(), float(self.config.learning_rate))
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 10)
+        model_utils.train_model(
+            epoch=self.epoch,
+            model=model,
+            train_loader=train_dl,
+            val_loader=None,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            criterion=criterion,
+            device=self.device,
+            threshold=self.config.threshold,
+            best_model_path=None,
+            logger=self.logger,
+        )
+        model_utils.save_pytorch_model(model, self.save_dir / "all_model.pth")
+        self.logger.info(f'save model to {self.save_dir / "all_model.pth"}')
 
     def run_predict_all(self, test_x):
         pass
