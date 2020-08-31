@@ -107,8 +107,9 @@ def prediction_for_clip(
                     _proba = prediction.detach().cpu().numpy()
                 # print(proba.shape)
                 proba = np.concatenate([proba, _proba])
-        label_string = proba_to_label_string(proba, threshold)
-        prediction_dict[row_id] = label_string
+        # label_string = proba_to_label_string(proba, threshold)
+        # prediction_dict[row_id] = label_string
+        prediction_dict[row_id] = proba
     return prediction_dict
 
 
@@ -149,6 +150,10 @@ def prediction(
         )
         all_prediction_dict.update(prediction_dict)
 
+    # print(all_prediction_dict)
+    # proba to label string
+    for k, v in all_prediction_dict.items():
+        all_prediction_dict[k] = proba_to_label_string(v, threshold)
     print(all_prediction_dict)
     row_id = list(all_prediction_dict.keys())
     birds = list(all_prediction_dict.values())
