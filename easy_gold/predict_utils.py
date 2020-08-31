@@ -1,4 +1,5 @@
 import warnings
+from collections import OrderedDict
 from pathlib import Path
 
 import numpy as np
@@ -124,6 +125,7 @@ def prediction(
 
     warnings.filterwarnings("ignore")
     prediction_dfs = []
+    all_prediction_dict = OrderedDict()
     model = model_utils.load_pytorch_model(**model_list[0])
     for audio_id in unique_audio_id:
         clip, _ = librosa.load(
@@ -136,7 +138,6 @@ def prediction(
         test_df_for_audio_id = test_df.query(f"audio_id == '{audio_id}'").reset_index(
             drop=True
         )
-        # model = model_utils.load_pytorch_model(**model_list[0])
         prediction_dict = prediction_for_clip(
             test_df_for_audio_id,
             clip=clip,
@@ -146,10 +147,11 @@ def prediction(
             composer=composer,
             threshold=threshold,
         )
-        row_id = list(prediction_dict.keys())
-        birds = list(prediction_dict.values())
-        prediction_df = pd.DataFrame({"row_id": row_id, "birds": birds})
-        prediction_dfs.append(prediction_df)
+        all_prediction_dict.update(prediction_dict)
 
-    prediction_df = pd.concat(prediction_dfs, axis=0, sort=False).reset_index(drop=True)
+    print(all_prediction_dict)
+    row_id = list(all_prediction_dict.keys())
+    birds = list(all_prediction_dict.values())
+    prediction_df = pd.DataFrame({"row_id": row_id, "birds": birds})
+
     return prediction_df
