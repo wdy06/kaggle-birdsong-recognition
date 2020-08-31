@@ -29,6 +29,19 @@ def long_clip_to_images(y, sample_rate, composer):
     return images
 
 
+def proba_to_label_string(proba, threshold):
+    events = proba >= threshold
+    all_events = set(np.argwhere(events)[:, 1])
+    labels = list(all_events)
+    if len(labels) == 0:
+        label_string = "nocall"
+    else:
+        labels_str_list = list(map(lambda x: utils.INV_BIRD_CODE[x], labels))
+        label_string = " ".join(labels_str_list)
+    # print(label_string)
+    return label_string
+
+
 def prediction_for_clip(
     test_df: pd.DataFrame,
     clip: np.ndarray,
@@ -64,10 +77,6 @@ def prediction_for_clip(
             with torch.no_grad():
                 prediction = model(image)
                 proba = prediction.detach().cpu().numpy()
-            print(proba.shape)
-
-            events = proba >= threshold
-            labels = np.argwhere(events).reshape(-1).tolist()
 
         else:
             # to avoid prediction on large batch
@@ -84,8 +93,8 @@ def prediction_for_clip(
             else:
                 n_iter = whole_size // batch_size + 1
 
-            all_events = set()
-            all_proba = np.zeros([0, len(utils.BIRD_CODE)])
+            # all_events = set()
+            proba = np.zeros([0, len(utils.BIRD_CODE)])
             for batch_i in range(n_iter):
                 batch = image[batch_i * batch_size : (batch_i + 1) * batch_size]
                 if batch.ndim == 3:
@@ -94,22 +103,11 @@ def prediction_for_clip(
                 batch = batch.to(device)
                 with torch.no_grad():
                     prediction = model(batch)
-                    proba = prediction.detach().cpu().numpy()
-                print(proba.shape)
-                all_proba = np.concatenate([all_proba, proba])
-
-            events = all_proba >= threshold
-            all_events = set(np.argwhere(events)[:, 1])
-            print(all_proba.shape)
-            labels = list(all_events)
-            print(labels)
-        if len(labels) == 0:
-            prediction_dict[row_id] = "nocall"
-        else:
-            #             labels_str_list = list(map(lambda x: INV_BIRD_CODE[x], labels))
-            labels_str_list = list(map(lambda x: utils.INV_BIRD_CODE[x], labels))
-            label_string = " ".join(labels_str_list)
-            prediction_dict[row_id] = label_string
+                    _proba = prediction.detach().cpu().numpy()
+                # print(proba.shape)
+                proba = np.concatenate([proba, _proba])
+        label_string = proba_to_label_string(proba, threshold)
+        prediction_dict[row_id] = label_string
     return prediction_dict
 
 
