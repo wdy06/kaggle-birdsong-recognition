@@ -34,16 +34,16 @@ def prediction_for_clip(
     clip: np.ndarray,
     ds_class,
     sample_rate,
-    model_list,
+    model,
     composer=None,
     threshold=0.5,
 ):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # model.to(device)
+    model.to(device)
+    model.eval()
 
-    # model.eval()
     prediction_dict = {}
     for idx in tqdm(range(len(test_df))):
         record = test_df.loc[idx, :]
@@ -61,17 +61,9 @@ def prediction_for_clip(
             image = image[np.newaxis, :, :, :]
             image = torch.Tensor(image)
             image = image.to(device)
-            proba = 0
-            for config in tqdm(model_list):
-                model = model_utils.load_pytorch_model(**config)
-                model.to(device)
-                model.eval()
-                with torch.no_grad():
-                    prediction = model(image)
-                    #                 proba = prediction["multilabel_proba"].detach().cpu().numpy().reshape(-1)
-                    # proba += prediction.detach().cpu().numpy().reshape(-1)
-                    proba += prediction.detach().cpu().numpy()
-            proba /= len(model_list)
+            with torch.no_grad():
+                prediction = model(image)
+                proba = prediction.detach().cpu().numpy()
             print(proba.shape)
 
             events = proba >= threshold
@@ -100,15 +92,9 @@ def prediction_for_clip(
                     batch = batch.unsqueeze(0)
 
                 batch = batch.to(device)
-                proba = 0
-                for config in tqdm(model_list):
-                    model = model_utils.load_pytorch_model(**config)
-                    model.to(device)
-                    model.eval()
-                    with torch.no_grad():
-                        prediction = model(batch)
-                        proba += prediction.detach().cpu().numpy()
-                proba /= len(model_list)
+                with torch.no_grad():
+                    prediction = model(batch)
+                    proba = prediction.detach().cpu().numpy()
                 print(proba.shape)
                 all_proba = np.concatenate([all_proba, proba])
 
@@ -140,6 +126,7 @@ def prediction(
 
     warnings.filterwarnings("ignore")
     prediction_dfs = []
+    model = model_utils.load_pytorch_model(**model_list[0])
     for audio_id in unique_audio_id:
         clip, _ = librosa.load(
             test_audio / (audio_id + ".mp3"),
@@ -151,12 +138,13 @@ def prediction(
         test_df_for_audio_id = test_df.query(f"audio_id == '{audio_id}'").reset_index(
             drop=True
         )
+        # model = model_utils.load_pytorch_model(**model_list[0])
         prediction_dict = prediction_for_clip(
             test_df_for_audio_id,
             clip=clip,
             ds_class=ds_class,
             sample_rate=sample_rate,
-            model_list=model_list,
+            model=model,
             composer=composer,
             threshold=threshold,
         )
