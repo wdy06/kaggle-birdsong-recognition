@@ -371,6 +371,10 @@ def mono_to_color(
     # Stack X as [X,X,X]
     X = np.stack([X, X, X], axis=-1)
 
+    return X
+
+
+def normalize_image(X, mean=None, std=None, norm_max=None, norm_min=None, eps=1e-6):
     # Standardize
     mean = mean or X.mean()
     X = X - mean
@@ -410,6 +414,7 @@ def build_composer(
             melspec = spectrogram_transforms(melspec)
 
         image = mono_to_color(melspec)
+        image = normalize_image(image)
         height, width, _ = image.shape
         image = cv2.resize(image, (int(width * img_size / height), img_size))
         image = np.moveaxis(image, 2, 0)
