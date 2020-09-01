@@ -83,6 +83,7 @@ def main(cfg):
 
     oof_preds = runner.run_train_cv()
     print(oof_preds)
+    runner.run_train_all()
     preds_nocall = runner.run_predict_cv(nocall_df)
     oof_preds = np.concatenate([oof_preds, preds_nocall], axis=0)
 
@@ -103,4 +104,7 @@ def main(cfg):
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        logger.exception(e)
