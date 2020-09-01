@@ -61,7 +61,7 @@ def prediction_for_clip(
     prediction_dict = {}
     for idx in tqdm(range(len(test_df))):
         record = test_df.loc[idx, :]
-        print(record)
+        # print(record)
         row_id = record.row_id
         site = record.site
         if site in {"site_1", "site_2"}:
@@ -76,7 +76,7 @@ def prediction_for_clip(
             image = torch.Tensor(image)
             image = image.to(device)
             with torch.no_grad():
-                prediction = model(image)
+                prediction = torch.sigmoid(model(image))
                 proba = prediction.detach().cpu().numpy()
 
         else:
@@ -103,7 +103,7 @@ def prediction_for_clip(
 
                 batch = batch.to(device)
                 with torch.no_grad():
-                    prediction = model(batch)
+                    prediction = torch.sigmoid(model(batch))
                     _proba = prediction.detach().cpu().numpy()
                 # print(proba.shape)
                 proba = np.concatenate([proba, _proba])
@@ -125,38 +125,48 @@ def prediction(
     unique_audio_id = test_df.audio_id.unique()
 
     warnings.filterwarnings("ignore")
-    prediction_dfs = []
-    all_prediction_dict = OrderedDict()
-    model = model_utils.load_pytorch_model(**model_list[0])
-    for audio_id in unique_audio_id:
-        clip, _ = librosa.load(
-            test_audio / (audio_id + ".mp3"),
-            sr=sample_rate,
-            mono=True,
-            # res_type="kaiser_fast",
-        )
+    agg_dict = OrderedDict()
+    for model_config in model_list:
+        print(model_config)
+        model = model_utils.load_pytorch_model(**model_config)
+        all_prediction_dict = OrderedDict()
+        for audio_id in unique_audio_id:
+            clip, _ = librosa.load(
+                test_audio / (audio_id + ".mp3"),
+                sr=sample_rate,
+                mono=True,
+                # res_type="kaiser_fast",
+            )
 
-        test_df_for_audio_id = test_df.query(f"audio_id == '{audio_id}'").reset_index(
-            drop=True
-        )
-        prediction_dict = prediction_for_clip(
-            test_df_for_audio_id,
-            clip=clip,
-            ds_class=ds_class,
-            sample_rate=sample_rate,
-            model=model,
-            composer=composer,
-            threshold=threshold,
-        )
-        all_prediction_dict.update(prediction_dict)
+            test_df_for_audio_id = test_df.query(
+                f"audio_id == '{audio_id}'"
+            ).reset_index(drop=True)
+            prediction_dict = prediction_for_clip(
+                test_df_for_audio_id,
+                clip=clip,
+                ds_class=ds_class,
+                sample_rate=sample_rate,
+                model=model,
+                composer=composer,
+                threshold=threshold,
+            )
+            all_prediction_dict.update(prediction_dict)
+
+        # aggregate model prediction
+        for key in all_prediction_dict.keys():
+            if key in agg_dict:
+                agg_dict[key] += all_prediction_dict[key]
+            else:
+                agg_dict[key] = all_prediction_dict[key]
 
     # print(all_prediction_dict)
     # proba to label string
-    for k, v in all_prediction_dict.items():
-        all_prediction_dict[k] = proba_to_label_string(v, threshold)
-    print(all_prediction_dict)
-    row_id = list(all_prediction_dict.keys())
-    birds = list(all_prediction_dict.values())
+    for k, v in agg_dict.items():
+        v /= len(model_list)
+        agg_dict[k] = proba_to_label_string(v, threshold)
+    print(agg_dict)
+    row_id = list(agg_dict.keys())
+    birds = list(agg_dict.values())
     prediction_df = pd.DataFrame({"row_id": row_id, "birds": birds})
 
     return prediction_df

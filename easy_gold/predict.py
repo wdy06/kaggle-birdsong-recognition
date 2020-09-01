@@ -6,6 +6,7 @@ import pandas as pd
 
 import datasets
 import model_utils
+import predict_utils
 import utils
 
 parser = argparse.ArgumentParser(description="global wheat detection")
@@ -26,17 +27,26 @@ config_path = model_dir / ".hydra" / "config.yaml"
 config = utils.load_yaml(config_path)
 
 model_config_list = []
-for i in range(5):
-    model_config = {
-        "path": model_dir / f"best_model_fold{i}.pth",
-        "model_name": config["model"]["name"],
-        "n_class": len(utils.BIRD_CODE),
-    }
-    model_config_list.append(model_config)
+model_config = {
+    "path": model_dir / f"all_model.pth",
+    "model_name": config["model"]["name"],
+    "n_class": len(utils.BIRD_CODE),
+}
+model_config_list.append(model_config)
 # model_path = model_dir / "best_model.pth"
 # model = model_utils.load_pytorch_model(
 #     model_name=config["model"]["name"], path=model_path, n_class=len(utils.BIRD_CODE)
 # )
+# FOLD = 5
+# if args.debug:
+#     FOLD = 1
+# for i in range(FOLD):
+#     model_config = {
+#         "path": model_dir / f"best_model_fold{i}.pth",
+#         "model_name": config["model"]["name"],
+#         "n_class": len(utils.BIRD_CODE),
+#     }
+#     model_config_list.append(model_config)
 
 threshold = utils.load_json(model_dir / "threshold.json")
 # test_df = pd.read_csv(utils.DATA_DIR / "test.csv")
@@ -51,7 +61,7 @@ else:
 composer = utils.build_composer(
     sample_rate=config["sample_rate"], img_size=config["image_size"]
 )
-submission = utils.prediction(
+submission = predict_utils.prediction(
     test_df=test_df,
     test_audio=test_audio_dir,
     ds_class=datasets.SpectrogramDataset,
