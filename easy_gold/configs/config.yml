@@ -17,7 +17,7 @@ composer:
     fmin: 20
     fmax: 16000
 model:
-  name: base_resnet50
+  name: resnest50_fast_1s1x64d
   pretrained: true
 
 hydra:
