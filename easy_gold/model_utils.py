@@ -58,7 +58,7 @@ def load_pytorch_model(model_name, path, n_class, *args, **kwargs):
     return model
 
 
-def build_model(model_name, n_class, pretrained=False):
+def build_model(model_name, n_class, in_chans=3, pretrained=False):
     if model_name == "base_resnet50":
         res50 = torchvision.models.resnet50(pretrained=False)
         bottom = nn.Sequential(*list(res50.children())[:6])
@@ -66,6 +66,8 @@ def build_model(model_name, n_class, pretrained=False):
         model = nn.Sequential(bottom, mid, Head(n_class))
 
     elif model_name == "resnest50_fast_1s1x64d":
+        if in_chans != 3:
+            raise ValueError("resnest50 accepts only 3 channels")
         model = resnest50_fast_1s1x64d(pretrained=pretrained)
         del model.fc
         # # use the same head as the baseline notebook.
@@ -80,7 +82,7 @@ def build_model(model_name, n_class, pretrained=False):
         )
     else:
         model = timm.create_model(
-            model_name, pretrained=pretrained, num_classes=n_class
+            model_name, pretrained=pretrained, num_classes=n_class, in_chans=in_chans
         )
         # raise ValueError(f"model name {model_name} is not implemented.")
 

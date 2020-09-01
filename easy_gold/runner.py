@@ -82,6 +82,7 @@ class Runner:
             model = model_utils.build_model(
                 self.config.model.name,
                 n_class=self.n_class,
+                in_chans=self.config.model.in_chans,
                 pretrained=self.config.model.pretrained,
             )
             if self.config.multi:
@@ -154,6 +155,7 @@ class Runner:
         model = model_utils.build_model(
             self.config.model.name,
             n_class=self.n_class,
+            in_chans=self.config.model.in_chans,
             pretrained=self.config.model.pretrained,
         )
         if self.config.multi:
