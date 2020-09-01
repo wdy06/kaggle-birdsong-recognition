@@ -51,7 +51,7 @@ class SpectrogramDataset(Dataset):
 
     def __getitem__(self, idx: int):
         warnings.filterwarnings("ignore")
-        sample = self.df.loc[idx, :]
+        sample = self.df.iloc[idx, :]
         # wav_name = sample["resampled_filename"]
         wav_name = sample["filename"]
         wav_name = wav_name.replace("mp3", "wav")
