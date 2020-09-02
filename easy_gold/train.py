@@ -32,7 +32,10 @@ def main(cfg):
 
     logger.info(f"found {torch.cuda.device_count()} gpus !!")
 
-    device = torch.device("cuda:0")
+    if cfg.gpu:
+        device = torch.device("cuda:0")
+    else:
+        device = torch.device("cpu")
 
     df = pd.read_csv(utils.DATA_DIR / "train.csv")
     # remove row becase XC195038.mp3 cannot load
@@ -65,6 +68,7 @@ def main(cfg):
     composer = utils.build_composer(
         sample_rate=SAMPLE_RATE,
         img_size=IMAGE_SIZE,
+        in_chans=cfg.model.in_chans,
         melspectrogram_parameters=cfg.composer.melspectrogram_parameters,
     )
 
@@ -81,7 +85,7 @@ def main(cfg):
         fold_indices=fold_indices,
     )
 
-    oof_preds = runner.run_train_cv()
+    oof_preds, avg_val_loss = runner.run_train_cv()
     print(oof_preds)
     runner.run_train_all()
     preds_nocall = runner.run_predict_cv(nocall_df)
@@ -91,12 +95,18 @@ def main(cfg):
     rounder = utils.OptimizeRounder(n_class)
     df = pd.concat([df, nocall_df], axis=0)
     y_true = np.array(df.ebird_code.map(lambda x: utils.one_hot_encode(x)).tolist())
-    rounder.fit(y_true, oof_preds)
-    utils.dump_json(rounder.coefficients(), "threshold.json")
-    best_val_score = f1_score(
-        y_true, oof_preds > rounder.coefficients(), average="micro"
-    )
-    logger.info(f"best f1_score: {best_val_score}")
+    # rounder.fit(y_true, oof_preds)
+    # utils.dump_json(rounder.coefficients(), "threshold.json")
+    # best_val_score = f1_score(
+    #     y_true, oof_preds > rounder.coefficients(), average="micro"
+    # )
+    best_val_score = f1_score(y_true, oof_preds > cfg.threshold, average="micro")
+
+    utils.dump_pickle(oof_preds, "oof_preds.pkl")
+    utils.dump_pickle(y_true, "oof_true.pkl")
+    # logger.info(f"best f1_score: {best_val_score}")
+    logger.info(f"threshold {cfg.threshold} f1_score: {best_val_score}")
+    logger.info(f"average best loss: {avg_val_loss}")
 
     # print(preds)
     logger.info(os.getcwd())
