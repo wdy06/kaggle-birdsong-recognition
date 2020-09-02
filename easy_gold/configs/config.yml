@@ -5,6 +5,7 @@ epoch: 50
 threshold: 0.5
 debug: false
 multi: true
+gpu: true
 
 dataloader:
   num_workers: 64
