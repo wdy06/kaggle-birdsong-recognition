@@ -11,6 +11,7 @@ import utils
 
 parser = argparse.ArgumentParser(description="global wheat detection")
 parser.add_argument("--debug", help="run debug mode", action="store_true")
+parser.add_argument("--th", "-t", help="threshold", type=float, default=None)
 parser.add_argument("--model_dir", "-m", help="model path", type=str, required=True)
 
 # SAMPLE_RATE = 32000
@@ -49,6 +50,9 @@ model_config_list.append(model_config)
 #     model_config_list.append(model_config)
 
 threshold = utils.load_json(model_dir / "threshold.json")
+if args.th:
+    print(f'override threshold with {args.th}')
+    threshold = args.th
 # test_df = pd.read_csv(utils.DATA_DIR / "test.csv")
 test_audio_dir = utils.DATA_DIR / "test_audio"
 if test_audio_dir.exists():
