@@ -54,6 +54,7 @@ class Runner:
 
     def run_train_cv(self):
         oof_preds = np.zeros((len(self.df), self.n_class))
+        best_val_loss = 0
         for i_fold, (trn_idx, val_idx) in enumerate(self.fold_indices):
             self.logger.info("-" * 10)
             self.logger.info(f"fold: {i_fold}")
@@ -85,7 +86,7 @@ class Runner:
                 in_chans=self.config.model.in_chans,
                 pretrained=self.config.model.pretrained,
             )
-            if self.config.multi:
+            if self.config.multi and self.config.gpu:
                 self.logger.info("Using pararell gpu")
                 model = nn.DataParallel(model)
 
@@ -94,7 +95,7 @@ class Runner:
             optimizer = optim.Adam(model.parameters(), float(self.config.learning_rate))
             scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 10)
             best_model_path = self.save_dir / f"best_model_fold{i_fold}.pth"
-            model_utils.train_model(
+            best_val_loss += model_utils.train_model(
                 epoch=self.epoch,
                 model=model,
                 train_loader=train_dl,
@@ -111,13 +112,15 @@ class Runner:
                 model_name=self.config.model.name,
                 path=best_model_path,
                 n_class=self.n_class,
+                in_chans=self.config.model.in_chans,
             )
             preds = model_utils.predict(
                 model, valid_dl, self.n_class, self.device, sigmoid=True
             )
             oof_preds[val_idx, :] = preds
         # oof_score = self.metrics(self.y, oof_preds)
-        return oof_preds
+        best_val_loss /= len(self.fold_indices)
+        return oof_preds, best_val_loss
 
     def run_predict_cv(self, df):
         ds = datasets.SpectrogramDataset(
@@ -133,7 +136,10 @@ class Runner:
         for i_fold, _ in enumerate(self.fold_indices):
             model_path = self.save_dir / f"best_model_fold{i_fold}.pth"
             model = model_utils.load_pytorch_model(
-                model_name=self.config.model.name, path=model_path, n_class=self.n_class
+                model_name=self.config.model.name,
+                path=model_path,
+                n_class=self.n_class,
+                in_chans=self.config.model.in_chans,
             )
             preds += model_utils.predict(
                 model, dataloader, self.n_class, self.device, sigmoid=True
@@ -158,7 +164,7 @@ class Runner:
             in_chans=self.config.model.in_chans,
             pretrained=self.config.model.pretrained,
         )
-        if self.config.multi:
+        if self.config.multi and self.config.gpu:
             self.logger.info("Using pararell gpu")
             model = nn.DataParallel(model)
 

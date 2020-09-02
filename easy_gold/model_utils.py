@@ -44,7 +44,7 @@ def save_pytorch_model(model, path):
     torch.save(model.state_dict(), path)
 
 
-def load_pytorch_model(model_name, path, n_class, *args, **kwargs):
+def load_pytorch_model(model_name, path, n_class, in_chans=3, *args, **kwargs):
     state_dict = torch.load(path)
     new_state_dict = OrderedDict()
     for k, v in state_dict.items():
@@ -52,7 +52,7 @@ def load_pytorch_model(model_name, path, n_class, *args, **kwargs):
         if k[:7] == "module.":
             name = k[7:]  # remove `module.`
         new_state_dict[name] = v
-    model = build_model(model_name, n_class, pretrained=False)
+    model = build_model(model_name, n_class, in_chans, pretrained=False)
     model.load_state_dict(new_state_dict)
     # model.load_state_dict(state_dict)
     return model
@@ -157,6 +157,7 @@ def train_model(
                     f"update best score !! current best loss: {best_val_score:.5} !!"
                 )
                 save_pytorch_model(model, best_model_path)
+    return best_val_score
 
 
 def train_1epoch(model, data_loader, optimizer, scheduler, criterion, device):
