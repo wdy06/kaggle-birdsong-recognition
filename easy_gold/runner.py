@@ -77,8 +77,14 @@ class Runner:
             train_dl = torch.utils.data.DataLoader(
                 train_ds, shuffle=True, **self.config.dataloader
             )
+
+            # reduce batchsize for avoiding cudnn error
             valid_dl = torch.utils.data.DataLoader(
-                valid_ds, shuffle=False, **self.config.dataloader
+                valid_ds,
+                shuffle=False,
+                num_workers=self.config.dataloader.num_workers,
+                batch_size=int(self.config.dataloader.batch_size / 2),
+                pin_memory=self.config.dataloader.pin_memory,
             )
             model = model_utils.build_model(
                 self.config.model.name,
