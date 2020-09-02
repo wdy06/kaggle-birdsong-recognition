@@ -365,9 +365,7 @@ def one_hot_encode(ebird_code):
     return labels
 
 
-def mono_to_color(
-    X: np.ndarray, mean=None, std=None, norm_max=None, norm_min=None, eps=1e-6
-):
+def mono_to_color(X: np.ndarray):
     # Stack X as [X,X,X]
     X = np.stack([X, X, X], axis=-1)
 
@@ -399,10 +397,13 @@ def normalize_image(X, mean=None, std=None, norm_max=None, norm_min=None, eps=1e
 def build_composer(
     sample_rate,
     img_size,
+    in_chans=3,
     melspectrogram_parameters={},
     waveform_transforms=None,
     spectrogram_transforms=None,
 ):
+    assert in_chans in [1, 3]
+
     def composer(x):
         if waveform_transforms:
             x = waveform_transforms(x)
@@ -413,11 +414,18 @@ def build_composer(
         if spectrogram_transforms:
             melspec = spectrogram_transforms(melspec)
 
-        image = mono_to_color(melspec)
-        image = normalize_image(image)
-        height, width, _ = image.shape
-        image = cv2.resize(image, (int(width * img_size / height), img_size))
-        image = np.moveaxis(image, 2, 0)
+        if in_chans == 3:
+            image = mono_to_color(melspec)
+            image = normalize_image(image)
+            height, width, _ = image.shape
+            # print(height, width)
+            image = cv2.resize(image, (int(width * img_size / height), img_size))
+            image = np.moveaxis(image, 2, 0)
+        elif in_chans == 1:
+            image = normalize_image(melspec)
+            height, width = image.shape
+            image = cv2.resize(image, (int(width * img_size / height), img_size))
+            image = np.expand_dims(image, axis=0)
         image = (image / 255.0).astype(np.float32)
         return image
 
