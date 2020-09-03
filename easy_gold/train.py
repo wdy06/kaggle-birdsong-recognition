@@ -77,7 +77,7 @@ def main(cfg):
         epoch=cfg.epoch,
         config=cfg,
         n_class=n_class,
-        composer=composer,
+        # composer=composer,
         data_dir=train_audio_dir,
         save_dir=".",
         logger=logger,

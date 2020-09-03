@@ -6,8 +6,10 @@ import torch
 import torch.optim as optim
 from torch import nn
 
+import audio_augmentation
 import datasets
 import model_utils
+import utils
 
 
 class Runner:
@@ -18,7 +20,7 @@ class Runner:
         epoch,
         config,
         n_class,
-        composer,
+        # composer,
         data_dir,
         save_dir,
         logger,
@@ -31,26 +33,31 @@ class Runner:
         self.epoch = epoch
         self.config = config
         self.n_class = n_class
-        self.composer = composer
+        # self.composer = composer
         self.data_dir = data_dir
         self.save_dir = Path(save_dir)
         self.logger = logger
         self.device = device
         self.fold_indices = fold_indices
 
-    # def train(self, train_x, train_y, val_x=None, val_y=None):
-    #     pass
-    # validation = True
-    # if (val_x is None) or (val_y is None):
-    #     validation = False
-    # model = self.build_model()
-    # if validation:
-    #     model.fit(train_x, train_y, val_x, val_y)
-    #     y_pred = model.predict(val_x)
-    #     return model, y_pred
-    # else:
-    #     model.fit(train_x, train_y)
-    #     return model, None
+        self.aug_transformer = audio_augmentation.get_train_transforms(
+            self.config.composer.wave_transform
+        )
+        self.train_composer = utils.build_composer(
+            sample_rate=self.config.sample_rate,
+            img_size=self.config.image_size,
+            in_chans=self.config.model.in_chans,
+            waveform_transforms=self.aug_transformer,
+            melspectrogram_parameters=self.config.composer.melspectrogram_parameters,
+        )
+
+        self.val_composer = utils.build_composer(
+            sample_rate=self.config.sample_rate,
+            img_size=self.config.image_size,
+            in_chans=self.config.model.in_chans,
+            waveform_transforms=None,
+            melspectrogram_parameters=self.config.composer.melspectrogram_parameters,
+        )
 
     def run_train_cv(self):
         oof_preds = np.zeros((len(self.df), self.n_class))
@@ -66,13 +73,13 @@ class Runner:
                 train_df,
                 self.data_dir,
                 sample_rate=self.config.sample_rate,
-                composer=self.composer,
+                composer=self.train_composer,
             )
             valid_ds = datasets.SpectrogramDataset(
                 val_df,
                 self.data_dir,
                 sample_rate=self.config.sample_rate,
-                composer=self.composer,
+                composer=self.val_composer,
             )
             train_dl = torch.utils.data.DataLoader(
                 train_ds, shuffle=True, **self.config.dataloader
@@ -133,7 +140,7 @@ class Runner:
             df,
             self.data_dir,
             sample_rate=self.config.sample_rate,
-            composer=self.composer,
+            composer=self.val_composer,
         )
         dataloader = torch.utils.data.DataLoader(
             ds, shuffle=False, **self.config.dataloader
@@ -159,7 +166,7 @@ class Runner:
             self.df,
             self.data_dir,
             sample_rate=self.config.sample_rate,
-            composer=self.composer,
+            composer=self.train_composer,
         )
         train_dl = torch.utils.data.DataLoader(
             train_ds, shuffle=True, **self.config.dataloader

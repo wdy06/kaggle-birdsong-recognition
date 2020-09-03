@@ -13,6 +13,29 @@ dataloader:
   pin_memory: true
 
 composer:
+  wave_transform:
+    - name: TimeShifting
+      param:
+        p: 0.5
+    - name: SpeedTuning
+      param:
+        p: 0.5
+    - name: AddGaussianNoise
+      param:
+        p: 0.5
+    - name: PitchShift
+      param:
+        p: 0.5
+        n_steps: 4
+    - name: Gain
+      param:
+        p: 0.5
+    - name: PolarityInversion
+      param:
+        p: 0.5
+    - name: StretchAudio
+      param:
+        p: 0.5
   melspectrogram_parameters:
     n_mels: 128
     fmin: 20

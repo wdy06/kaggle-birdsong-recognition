@@ -406,7 +406,7 @@ def build_composer(
 
     def composer(x):
         if waveform_transforms:
-            x = waveform_transforms(x)
+            x = waveform_transforms(data=x)['data']
         melspec = librosa.feature.melspectrogram(
             x, sr=sample_rate, **melspectrogram_parameters
         )
