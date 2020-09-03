@@ -13,6 +13,7 @@ parser = argparse.ArgumentParser(description="global wheat detection")
 parser.add_argument("--debug", help="run debug mode", action="store_true")
 parser.add_argument("--th", "-t", help="threshold", type=float, default=None)
 parser.add_argument("--model_dir", "-m", help="model path", type=str, required=True)
+args = parser.parse_args()
 
 # SAMPLE_RATE = 32000
 # IMAGE_SIZE = 224
@@ -22,7 +23,6 @@ submission = pd.read_csv(utils.DATA_DIR / "sample_submission.csv")
 submission["birds"] = "a"
 submission.to_csv("submission.csv", index=False)
 
-args = parser.parse_args()
 model_dir = Path(args.model_dir)
 config_path = model_dir / ".hydra" / "config.yaml"
 config = utils.load_yaml(config_path)
@@ -32,6 +32,7 @@ model_config = {
     "path": model_dir / f"all_model.pth",
     "model_name": config["model"]["name"],
     "n_class": len(utils.BIRD_CODE),
+    "in_chans": config["model"]["in_chans"],
 }
 model_config_list.append(model_config)
 # model_path = model_dir / "best_model.pth"
@@ -49,10 +50,11 @@ model_config_list.append(model_config)
 #     }
 #     model_config_list.append(model_config)
 
-threshold = utils.load_json(model_dir / "threshold.json")
 if args.th:
-    print(f'override threshold with {args.th}')
+    print(f"override threshold with {args.th}")
     threshold = args.th
+else:
+    threshold = utils.load_json(model_dir / "threshold.json")
 # test_df = pd.read_csv(utils.DATA_DIR / "test.csv")
 test_audio_dir = utils.DATA_DIR / "test_audio"
 if test_audio_dir.exists():
@@ -63,7 +65,9 @@ else:
     test_df = pd.read_csv(check_dir / "test.csv")
 
 composer = utils.build_composer(
-    sample_rate=config["sample_rate"], img_size=config["image_size"]
+    sample_rate=config["sample_rate"],
+    img_size=config["image_size"],
+    in_chans=config["model"]["in_chans"],
 )
 submission = predict_utils.prediction(
     test_df=test_df,
