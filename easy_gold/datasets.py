@@ -64,10 +64,10 @@ class SpectrogramDataset(Dataset):
             if duration > self.period:
                 offset = int(np.random.rand() * (duration - self.period - 1))
                 y, _ = librosa.load(
-                    wav_path, sr=self.sample_rate, offset=offset, duration=self.period,
+                    wav_path, sr=self.sample_rate, offset=offset, duration=self.period,mono=True
                 )
             else:
-                y, _ = librosa.load(wav_path, sr=self.sample_rate)
+                y, _ = librosa.load(wav_path, sr=self.sample_rate, mono=True)
                 y = np.tile(y, 15)  # the shortest rec in the train set is 0.39 sec
                 y = y[:effective_length]
         except Exception:
