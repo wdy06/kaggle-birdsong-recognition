@@ -135,7 +135,7 @@ def prediction(
                 test_audio / (audio_id + ".mp3"),
                 sr=sample_rate,
                 mono=True,
-                # res_type="kaiser_fast",
+                res_type="kaiser_fast",
             )
 
             test_df_for_audio_id = test_df.query(
