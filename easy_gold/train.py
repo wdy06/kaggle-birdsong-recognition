@@ -37,11 +37,20 @@ def main(cfg):
     else:
         device = torch.device("cpu")
 
-    df = pd.read_csv(utils.DATA_DIR / "train.csv")
+    df = pd.read_csv(utils.DATA_DIR / cfg.train_csv)
     # remove row becase XC195038.mp3 cannot load
     df = df.drop(df[df.filename == "XC195038.mp3"].index)
+    df = df.drop(
+        df[(df.filename == "XC575512.mp3") & (df.ebird_code == "swathr")].index
+    )
+    df = df.drop(
+        df[(df.filename == "XC433319.mp3") & (df.ebird_code == "aldfly")].index
+    )
+    df = df.drop(
+        df[(df.filename == "XC471618.mp3") & (df.ebird_code == "redcro")].index
+    )
     # train_audio_dir = utils.DATA_DIR / "train_audio"
-    train_audio_dir = utils.DATA_DIR / "train_resampled_with_nocall"
+    train_audio_dir = utils.DATA_DIR / cfg.train_audio_dir
     nocall_df = pd.read_csv(utils.DATA_DIR / "nocall.csv")
 
     SAMPLE_RATE = cfg.sample_rate
