@@ -125,22 +125,24 @@ def prediction(
     unique_audio_id = test_df.audio_id.unique()
 
     warnings.filterwarnings("ignore")
-    agg_dict = OrderedDict()
-    for model_config in model_list:
-        print(model_config)
-        model = model_utils.load_pytorch_model(**model_config)
-        all_prediction_dict = OrderedDict()
-        for audio_id in unique_audio_id:
-            clip, _ = librosa.load(
-                test_audio / (audio_id + ".mp3"),
-                sr=sample_rate,
-                mono=True,
-                res_type="kaiser_fast",
-            )
+    # ================================
+    all_prediction_dict = OrderedDict()
+    print(model_list)
+    for audio_id in unique_audio_id:
+        clip, _ = librosa.load(
+            test_audio / (audio_id + ".mp3"),
+            sr=sample_rate,
+            mono=True,
+            res_type="kaiser_fast",
+        )
 
-            test_df_for_audio_id = test_df.query(
-                f"audio_id == '{audio_id}'"
-            ).reset_index(drop=True)
+        test_df_for_audio_id = test_df.query(f"audio_id == '{audio_id}'").reset_index(
+            drop=True
+        )
+        agg_dict = OrderedDict()
+        for model_config in model_list:
+            # print(model_config)
+            model = model_utils.load_pytorch_model(**model_config)
             prediction_dict = prediction_for_clip(
                 test_df_for_audio_id,
                 clip=clip,
@@ -150,23 +152,22 @@ def prediction(
                 composer=composer,
                 threshold=threshold,
             )
-            all_prediction_dict.update(prediction_dict)
-
-        # aggregate model prediction
-        for key in all_prediction_dict.keys():
-            if key in agg_dict:
-                agg_dict[key] += all_prediction_dict[key]
-            else:
-                agg_dict[key] = all_prediction_dict[key]
+            # aggregate model prediction
+            for key in prediction_dict.keys():
+                if key in agg_dict:
+                    agg_dict[key] += prediction_dict[key]
+                else:
+                    agg_dict[key] = prediction_dict[key]
+        all_prediction_dict.update(agg_dict)
 
     # print(all_prediction_dict)
     # proba to label string
-    for k, v in agg_dict.items():
+    for k, v in all_prediction_dict.items():
         v /= len(model_list)
-        agg_dict[k] = proba_to_label_string(v, threshold)
-    print(agg_dict)
-    row_id = list(agg_dict.keys())
-    birds = list(agg_dict.values())
+        all_prediction_dict[k] = proba_to_label_string(v, threshold)
+    print(all_prediction_dict)
+    row_id = list(all_prediction_dict.keys())
+    birds = list(all_prediction_dict.values())
     prediction_df = pd.DataFrame({"row_id": row_id, "birds": birds})
 
     return prediction_df

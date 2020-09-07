@@ -11,6 +11,7 @@ import utils
 
 parser = argparse.ArgumentParser(description="global wheat detection")
 parser.add_argument("--debug", help="run debug mode", action="store_true")
+parser.add_argument("--cv", help="predict cross valid model", action="store_true")
 parser.add_argument("--th", "-t", help="threshold", type=float, default=None)
 parser.add_argument("--model_dir", "-m", help="model path", type=str, required=True)
 args = parser.parse_args()
@@ -28,27 +29,28 @@ config_path = model_dir / ".hydra" / "config.yaml"
 config = utils.load_yaml(config_path)
 
 model_config_list = []
-model_config = {
-    "path": model_dir / f"all_model.pth",
-    "model_name": config["model"]["name"],
-    "n_class": len(utils.BIRD_CODE),
-    "in_chans": config["model"]["in_chans"],
-}
-model_config_list.append(model_config)
-# model_path = model_dir / "best_model.pth"
-# model = model_utils.load_pytorch_model(
-#     model_name=config["model"]["name"], path=model_path, n_class=len(utils.BIRD_CODE)
-# )
-# FOLD = 5
-# if args.debug:
-#     FOLD = 1
-# for i in range(FOLD):
-#     model_config = {
-#         "path": model_dir / f"best_model_fold{i}.pth",
-#         "model_name": config["model"]["name"],
-#         "n_class": len(utils.BIRD_CODE),
-#     }
-#     model_config_list.append(model_config)
+if args.cv:
+    print("predict cv model")
+    FOLD = 5
+    if args.debug:
+        FOLD = 1
+    for i in range(FOLD):
+        model_config = {
+            "path": model_dir / f"best_model_fold{i}.pth",
+            "model_name": config["model"]["name"],
+            "n_class": len(utils.BIRD_CODE),
+            "in_chans": config["model"]["in_chans"],
+        }
+        model_config_list.append(model_config)
+else:
+    print("predict all model")
+    model_config = {
+        "path": model_dir / f"all_model.pth",
+        "model_name": config["model"]["name"],
+        "n_class": len(utils.BIRD_CODE),
+        "in_chans": config["model"]["in_chans"],
+    }
+    model_config_list.append(model_config)
 
 if args.th:
     print(f"override threshold with {args.th}")
