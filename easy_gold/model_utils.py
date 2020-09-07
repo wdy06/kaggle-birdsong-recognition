@@ -165,7 +165,9 @@ def train_1epoch(model, data_loader, optimizer, scheduler, criterion, device):
     model.train()
     for data in data_loader:
         inputs, labels = data["image"].to(device), data["targets"].to(device)
-        optimizer.zero_grad()
+        # optimizer.zero_grad()
+        for param in model.parameters():
+            param.grad = None
         outputs = model(inputs)
         loss = criterion(outputs, labels.float())
         loss.backward()
