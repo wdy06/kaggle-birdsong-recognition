@@ -64,18 +64,27 @@ class SpectrogramDataset(Dataset):
             if duration > self.period:
                 offset = int(np.random.rand() * (duration - self.period - 1))
                 y, _ = librosa.load(
-                    wav_path, sr=self.sample_rate, offset=offset, duration=self.period,mono=True
+                    wav_path,
+                    sr=self.sample_rate,
+                    offset=offset,
+                    duration=self.period,
+                    mono=True,
                 )
             else:
                 y, _ = librosa.load(wav_path, sr=self.sample_rate, mono=True)
                 y = np.tile(y, 15)  # the shortest rec in the train set is 0.39 sec
                 y = y[:effective_length]
+            # print(y.shape)
+            if len(y) != 160000:
+                raise ValueError()
+
+            if self.composer:
+                y = self.composer(y)
         except Exception:
             print(wav_path)
+            print(duration)
+            print(len(y))
             raise
-
-        if self.composer:
-            y = self.composer(y)
         # if image.shape != (3, 224, 547):
         #     print(wav_path, duration, len(y), offset)
 
