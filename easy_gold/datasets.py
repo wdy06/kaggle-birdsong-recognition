@@ -54,7 +54,9 @@ class SpectrogramDataset(Dataset):
         sample = self.df.iloc[idx, :]
         # wav_name = sample["resampled_filename"]
         wav_name = sample["filename"]
-        wav_name = wav_name.replace("mp3", "wav")
+        # wav_name = wav_name.replace("mp3", "wav")
+        wav_name = wav_name.replace("mp3", "npy")
+        wav_name = wav_name.replace("wav", "npy")
         ebird_code = sample["ebird_code"]
         duration = sample["duration"]
         wav_path = self.datadir / ebird_code / wav_name
@@ -63,15 +65,22 @@ class SpectrogramDataset(Dataset):
         try:
             if duration > self.period:
                 offset = int(np.random.rand() * (duration - self.period - 1))
-                y, _ = librosa.load(
-                    wav_path,
-                    sr=self.sample_rate,
-                    offset=offset,
-                    duration=self.period,
-                    mono=True,
-                )
+                y = np.load(wav_path)
+                y = y[
+                    offset
+                    * self.sample_rate : (offset + self.period)
+                    * self.sample_rate
+                ]
+                # y, _ = librosa.load(
+                #     wav_path,
+                #     sr=self.sample_rate,
+                #     offset=offset,
+                #     duration=self.period,
+                #     mono=True,
+                # )
             else:
-                y, _ = librosa.load(wav_path, sr=self.sample_rate, mono=True)
+                # y, _ = librosa.load(wav_path, sr=self.sample_rate, mono=True)
+                y = np.load(wav_path)
                 y = np.tile(y, 15)  # the shortest rec in the train set is 0.39 sec
                 y = y[:effective_length]
             # print(y.shape)
