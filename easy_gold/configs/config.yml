@@ -12,7 +12,7 @@ gpu: true
 
 dataloader:
   num_workers: 64
-  batch_size: 512
+  batch_size: 128
   pin_memory: true
 
 composer:
@@ -44,9 +44,9 @@ composer:
     fmin: 20
     fmax: 16000
 model:
-  name: resnest50_fast_1s1x64d
+  name: efficientnet_b4
   pretrained: true
-  in_chans: 3
+  in_chans: 1
 
 hydra:
   run:
