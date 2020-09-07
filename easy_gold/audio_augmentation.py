@@ -136,7 +136,8 @@ class PitchShift(AudioTransform):
         """
         data : ndarray of audio timeseries
         """
-        return librosa.effects.pitch_shift(data, sr=22050, n_steps=self.n_steps)
+        # return librosa.effects.pitch_shift(data, sr=22050, n_steps=self.n_steps)
+        return librosa.effects.pitch_shift(data, sr=32000, n_steps=self.n_steps)
 
 
 class AddGaussianNoise(AudioTransform):
