@@ -6,6 +6,7 @@ train_audio_dir: train_resampled_with_nocall_npy
 learning_rate: 1e-3
 epoch: 50
 threshold: 0.5
+mixup: false
 debug: false
 multi: true
 gpu: true

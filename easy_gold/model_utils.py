@@ -131,6 +131,7 @@ def train_model(
     threshold,
     best_model_path,
     logger,
+    mixup,
 ):
 
     model.to(device)
@@ -139,7 +140,7 @@ def train_model(
         t0 = time.time()
         # training phase
         running_loss = train_1epoch(
-            model, train_loader, optimizer, scheduler, criterion, device
+            model, train_loader, optimizer, scheduler, criterion, device, mixup
         )
 
         # validation phase
@@ -160,7 +161,9 @@ def train_model(
     return best_val_score
 
 
-def train_1epoch(model, data_loader, optimizer, scheduler, criterion, device):
+def train_1epoch(
+    model, data_loader, optimizer, scheduler, criterion, device, mixup=False
+):
     running_loss = 0.0
     model.train()
     for data in data_loader:
@@ -168,8 +171,15 @@ def train_1epoch(model, data_loader, optimizer, scheduler, criterion, device):
         # optimizer.zero_grad()
         for param in model.parameters():
             param.grad = None
+        if mixup:
+            inputs, targets_a, targets_b, lam = mixup_data(
+                inputs, labels, alpha=1.0, device=device
+            )
         outputs = model(inputs)
-        loss = criterion(outputs, labels.float())
+        if mixup:
+            loss = mixup_criterion(criterion, outputs, targets_a.float(), targets_b.float(), lam)
+        else:
+            loss = criterion(outputs, labels.float())
         loss.backward()
         optimizer.step()
         scheduler.step()
@@ -197,3 +207,26 @@ def validation(model, data_loader, criterion, device):
         val_loss /= len(data_loader)
 
     return preds, targs, val_loss
+
+
+def mixup_data(x, y, alpha=1.0, device=None):
+    """Returns mixed inputs, pairs of targets, and lambda"""
+    if alpha > 0:
+        lam = np.random.beta(alpha, alpha)
+    else:
+        lam = 1
+
+    batch_size = x.size()[0]
+    index = torch.randperm(batch_size).to(device)
+    # if use_cuda:
+    #     index = torch.randperm(batch_size).cuda()
+    # else:
+    #     index = torch.randperm(batch_size)
+
+    mixed_x = lam * x + (1 - lam) * x[index, :]
+    y_a, y_b = y, y[index]
+    return mixed_x, y_a, y_b, lam
+
+
+def mixup_criterion(criterion, pred, y_a, y_b, lam):
+    return lam * criterion(pred, y_a) + (1 - lam) * criterion(pred, y_b)

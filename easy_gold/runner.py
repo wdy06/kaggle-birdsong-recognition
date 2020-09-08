@@ -108,6 +108,8 @@ class Runner:
             optimizer = optim.Adam(model.parameters(), float(self.config.learning_rate))
             scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 10)
             best_model_path = self.save_dir / f"best_model_fold{i_fold}.pth"
+            if self.config.mixup:
+                self.logger.info("use mixup")
             best_val_loss += model_utils.train_model(
                 epoch=self.epoch,
                 model=model,
@@ -120,6 +122,7 @@ class Runner:
                 threshold=self.config.threshold,
                 best_model_path=best_model_path,
                 logger=self.logger,
+                mixup=self.config.mixup,
             )
             model = model_utils.load_pytorch_model(
                 model_name=self.config.model.name,
@@ -184,6 +187,8 @@ class Runner:
         criterion = nn.BCEWithLogitsLoss()
         optimizer = optim.Adam(model.parameters(), float(self.config.learning_rate))
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, 10)
+        if self.config.mixup:
+            self.logger.info("use mixup")
         model_utils.train_model(
             epoch=self.epoch,
             model=model,
@@ -196,6 +201,7 @@ class Runner:
             threshold=self.config.threshold,
             best_model_path=None,
             logger=self.logger,
+            mixup=self.config.mixup,
         )
         model_utils.save_pytorch_model(model, self.save_dir / "all_model.pth")
         self.logger.info(f'save model to {self.save_dir / "all_model.pth"}')
