@@ -13,12 +13,14 @@ import pandas as pd
 import scipy
 import torch
 import yaml
+from scipy.ndimage import maximum_filter1d
 from sklearn.metrics import f1_score
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import librosa
 import model_utils
+import noisereduce as nr
 
 # ON_KAGGLE: bool = 'KAGGLE_WORKING_DIR' in os.environ
 ON_KAGGLE: bool = "KAGGLE_URL_BASE" in os.environ
@@ -372,6 +374,29 @@ def mono_to_color(X: np.ndarray):
     return X
 
 
+def envelope(y, rate, threshold):
+    mask = []
+    y_mean = maximum_filter1d(np.abs(y), mode="constant", size=rate // 20)
+    #     print(y_mean)
+    mask = y_mean > threshold
+    return mask, y_mean
+
+
+def noise_reduce(x, rate, threshold=0.25, verbose=False):
+
+    mask, env = envelope(x, rate, threshold)
+    try:
+        if verbose:
+            print("apply noise reduction")
+        x = nr.reduce_noise(
+            audio_clip=x, noise_clip=x[np.logical_not(mask)], verbose=False
+        )
+    except ValueError:
+        if verbose:
+            print("skip noise reductin")
+    return x
+
+
 def normalize_image(X, mean=None, std=None, norm_max=None, norm_min=None, eps=1e-6):
     # Standardize
     mean = mean or X.mean()
@@ -406,7 +431,7 @@ def build_composer(
 
     def composer(x):
         if waveform_transforms:
-            x = waveform_transforms(data=x)['data']
+            x = waveform_transforms(data=x)["data"]
         melspec = librosa.feature.melspectrogram(
             x, sr=sample_rate, **melspectrogram_parameters
         )

@@ -12,6 +12,7 @@ import utils
 parser = argparse.ArgumentParser(description="global wheat detection")
 parser.add_argument("--debug", help="run debug mode", action="store_true")
 parser.add_argument("--cv", help="predict cross valid model", action="store_true")
+parser.add_argument("--denoise", help="apply nosei reduction", action="store_true")
 parser.add_argument("--th", "-t", help="threshold", type=float, default=None)
 parser.add_argument("--model_dir", "-m", help="model path", type=str, required=True)
 args = parser.parse_args()
@@ -79,6 +80,7 @@ submission = predict_utils.prediction(
     composer=composer,
     sample_rate=config["sample_rate"],
     threshold=threshold,
+    denoise=args.denoise,
 )
 
 submission.to_csv("submission.csv", index=False)

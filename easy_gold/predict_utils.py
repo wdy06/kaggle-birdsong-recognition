@@ -121,6 +121,7 @@ def prediction(
     composer=None,
     sample_rate=32000,
     threshold=0.5,
+    denoise=False,
 ):
     unique_audio_id = test_df.audio_id.unique()
 
@@ -135,6 +136,10 @@ def prediction(
             mono=True,
             res_type="kaiser_fast",
         )
+        if denoise:
+            clip = utils.noise_reduce(
+                clip, rate=sample_rate, threshold=0.25, verbose=True
+            )
 
         test_df_for_audio_id = test_df.query(f"audio_id == '{audio_id}'").reset_index(
             drop=True

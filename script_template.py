@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 from typing import Dict
 
-
 # this is base64 encoded source code
 file_data: Dict = {file_data}
 
@@ -23,5 +22,6 @@ def run(command):
 model_dir = ""
 run("pip install ../input/tim-package-new/timm-0.1.30-py3-none-any.whl")
 run("pip install ../input/resnest/resnest-0.0.5-py3-none-any.whl")
+run("pip install ../input/noisereduce/noisereduce-1.0.1-py3-none-any.whl")
 run("python setup.py develop --install-dir /kaggle/working")
-run(f"python easy_gold/predict.py -m {model_dir} --th 0.6")
+run(f"python easy_gold/predict.py -m {model_dir} --th 0.6 --cv --denoise")
