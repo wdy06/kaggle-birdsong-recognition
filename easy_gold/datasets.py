@@ -33,18 +33,16 @@ class SpectrogramDataset(Dataset):
         df: pd.DataFrame,
         datadir: Path,
         sample_rate=32000,
-        # img_size=224,
         period=5,
         composer=None,
-        # waveform_transforms=None,
-        # spectrogram_transforms=None,
-        # melspectrogram_parameters={},
+        secondary_label=None,
     ):
         self.df = df
         self.datadir = datadir
         self.sample_rate = sample_rate
         self.period = period
         self.composer = composer
+        self.secondary_label = secondary_label
 
     def __len__(self):
         return len(self.df)
@@ -98,6 +96,12 @@ class SpectrogramDataset(Dataset):
         #     print(wav_path, duration, len(y), offset)
 
         labels = utils.one_hot_encode(ebird_code)
+        if self.secondary_label is not None:
+            labels = utils.add_secondary_label(
+                labels, wav_name.replace("npy", "mp3"), self.secondary_label
+            )
+            # print("find secondary_label !!")
+            # print(labels)
         return {"image": y, "targets": labels}
 
 

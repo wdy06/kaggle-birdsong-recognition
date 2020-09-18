@@ -16,29 +16,27 @@ class Runner:
     def __init__(
         self,
         df,
-        # nocall_df,
         epoch,
         config,
         n_class,
-        # composer,
         data_dir,
         save_dir,
         logger,
         device,
         fold_indices=None,
+        secondary_label=None,
     ):
         super().__init__()
         self.df = df
-        # self.nocall_df = nocall_df
         self.epoch = epoch
         self.config = config
         self.n_class = n_class
-        # self.composer = composer
         self.data_dir = data_dir
         self.save_dir = Path(save_dir)
         self.logger = logger
         self.device = device
         self.fold_indices = fold_indices
+        self.secondary_label = secondary_label
 
         self.aug_transformer = audio_augmentation.get_train_transforms(
             self.config.composer.wave_transform
@@ -74,12 +72,14 @@ class Runner:
                 self.data_dir,
                 sample_rate=self.config.sample_rate,
                 composer=self.train_composer,
+                secondary_label=self.secondary_label,
             )
             valid_ds = datasets.SpectrogramDataset(
                 val_df,
                 self.data_dir,
                 sample_rate=self.config.sample_rate,
                 composer=self.val_composer,
+                secondary_label=self.secondary_label
             )
             train_dl = torch.utils.data.DataLoader(
                 train_ds, shuffle=True, **self.config.dataloader
@@ -170,6 +170,7 @@ class Runner:
             self.data_dir,
             sample_rate=self.config.sample_rate,
             composer=self.train_composer,
+            secondary_label=self.config.secondary_label
         )
         train_dl = torch.utils.data.DataLoader(
             train_ds, shuffle=True, **self.config.dataloader

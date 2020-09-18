@@ -74,12 +74,11 @@ def main(cfg):
     if cfg.debug:
         fold_indices = [fold_indices[0]]
 
-    composer = utils.build_composer(
-        sample_rate=SAMPLE_RATE,
-        img_size=IMAGE_SIZE,
-        in_chans=cfg.model.in_chans,
-        melspectrogram_parameters=cfg.composer.melspectrogram_parameters,
-    )
+    if cfg.secondary_label:
+        secondary_label = utils.load_pickle(utils.DATA_DIR / cfg.secondary_label)
+        logger.info("use secondary label")
+    else:
+        secondary_label = None
 
     runner = Runner(
         df=df,
@@ -92,6 +91,7 @@ def main(cfg):
         logger=logger,
         device=device,
         fold_indices=fold_indices,
+        secondary_label=secondary_label,
     )
 
     oof_preds, avg_val_loss = runner.run_train_cv()
@@ -109,7 +109,8 @@ def main(cfg):
     # best_val_score = f1_score(
     #     y_true, oof_preds > rounder.coefficients(), average="micro"
     # )
-    best_val_score = f1_score(y_true, oof_preds > cfg.threshold, average="micro")
+    # best_val_score = f1_score(y_true, oof_preds > cfg.threshold, average="micro")
+    best_val_score = f1_score(y_true > 0, oof_preds > cfg.threshold, average="micro")
 
     utils.dump_pickle(oof_preds, "oof_preds.pkl")
     utils.dump_pickle(y_true, "oof_true.pkl")

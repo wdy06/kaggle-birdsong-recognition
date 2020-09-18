@@ -147,7 +147,8 @@ def train_model(
         if val_loader is not None:
             preds, targs, val_loss = validation(model, val_loader, criterion, device)
 
-            score = f1_score(preds > threshold, targs, average="micro")
+            # score = f1_score(preds > threshold, targs, average="micro")
+            score = f1_score(preds > threshold, targs > 0, average="micro")
             logger.info(
                 f"[{epoch + 1}, {time.time() - t0:.1f}] loss: {running_loss:.4f}, val loss {val_loss:.4f},f1 score: {score:.4f}"
             )
@@ -177,7 +178,9 @@ def train_1epoch(
             )
         outputs = model(inputs)
         if mixup:
-            loss = mixup_criterion(criterion, outputs, targets_a.float(), targets_b.float(), lam)
+            loss = mixup_criterion(
+                criterion, outputs, targets_a.float(), targets_b.float(), lam
+            )
         else:
             loss = criterion(outputs, labels.float())
         loss.backward()

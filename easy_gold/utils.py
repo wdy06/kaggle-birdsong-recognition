@@ -361,9 +361,21 @@ def load_yaml(path):
 
 
 def one_hot_encode(ebird_code):
-    labels = np.zeros(len(BIRD_CODE), dtype=int)
+    labels = np.zeros(len(BIRD_CODE), dtype=float)
     if ebird_code != "nocall":
         labels[BIRD_CODE[ebird_code]] = 1
+    return labels
+
+
+def add_secondary_label(labels, file_name, secondary_label_dict, weight=0.5):
+    if file_name in secondary_label_dict:
+        second_label = secondary_label_dict[file_name]
+        for ebird_code in second_label:
+            labels[BIRD_CODE[ebird_code]] = weight
+        # if len(second_label) != 0:
+            # print(second_label)
+            # print("find second label!")
+            # print(labels)
     return labels
 
 
