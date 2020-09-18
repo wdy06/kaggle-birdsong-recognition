@@ -5,3 +5,4 @@ results/
 easy_gold/__pycache__/
 outputs/
 multirun/
+notebooks/.ipynb_checkpoints/
