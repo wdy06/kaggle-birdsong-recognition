@@ -1,0 +1,33 @@
+sample_rate: 32000
+image_size: 224
+train_csv: train.csv
+# train_audio_dir: train_resampled_with_nocall
+train_audio_dir: train_resampled_with_nocall_npy
+# secondary_label: secondary_ebird.pkl
+secondary_label: null
+learning_rate: 1e-3
+epoch: 50
+threshold: 0.5
+# mixup: false
+debug: false
+multi: true
+gpu: true
+
+dataloader:
+  num_workers: 64
+  batch_size: 256
+  pin_memory: true
+
+model:
+  sample_rate: 32000
+  window_size: 1024
+  hop_size: 320
+  mel_bins: 64
+  fmin: 50
+  fmax: 14000
+  classes_num: 264
+
+hydra:
+  run:
+    # dir: ./outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: ./outputs/debug${debug}-${now:%Y%m%d%H%M%S}
